@@ -44,7 +44,8 @@
   -- Debug toggle [Shows all debug message on screen]
 
 
-local core = require("xCore")
+local core = require("xCore") 
+
 
 local Combo_key = 1
 local Clear_key = 3
@@ -126,7 +127,7 @@ local Dash_list_cfg = {}
 -- 1 = default
 -- 2 = lots
 -- 3 = trace
-Debug_level = 2
+Debug_level = 1
 Res = g_render:get_screensize()
 Font = 'roboto-regular'
 White = color:new(255, 255, 255)
@@ -158,19 +159,27 @@ local colors = {
 
 COLOR = White
 LastMsg = "init"
+LastMsg1 = "init"
+LastMsg2 = "init"
+
 MinionInRange = {}
 MinionToHarass = {}
 SplashableTargetIndex = nil
 SplashableMinionIndex = nil
 MinionTable = {}
 Last_cast_time = g_time
+Last_dbg_msg_time = g_time
 
 function Prints(str, level)
   level = level or 1
   str = tostring(str)
   if level <= Debug_level then
     print("log: " .. " " .. str)
-    if str ~= LastMsg then LastMsg = str end
+    if str ~= LastMsg then 
+      LastMsg2 = LastMsg1
+      LastMsg1 = LastMsg 
+      LastMsg = str
+    end
   end
 end
 
@@ -454,9 +463,9 @@ function Build_dash_list()
   Prints("building dash list", 1)
   for _, enemy in pairs(features.entity_list:get_enemies()) do
       local enemy_champion_name = string.lower(enemy.champion_name.text)
-      if core.DB.Dash[enemy_champion_name] then
+      if DB.Dash[enemy_champion_name] then
           Prints("adding ".. enemy_champion_name)
-          local dash_data_list = core.DB.Dash[enemy_champion_name]
+          local dash_data_list = DB.Dash[enemy_champion_name] 
           for _, dash_data in ipairs(dash_data_list) do
               local details = enemy_champion_name .. tostring(dash_data.menuslot)
               local dash = g_config:add_bool(false, details)
@@ -526,7 +535,7 @@ function Visualize_damage()
   if g_time - Last_cast_time <= 0.15 then return end
 
   for i, enemy in pairs(features.entity_list:get_enemies()) do
-    if enemy:is_alive() and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+    if X.helper.is_alive(enemy.index) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
       local approx = 0
       local Killable = false
       local aadmg = helper.get_aa_damage(enemy.index, false)
@@ -609,9 +618,6 @@ function Visualize_damage()
 end
 
 
-
-
-
 function Visualize_spell_range()
   Prints("draw ranges", 3)
   if checkboxDrawQ:get_value() then 
@@ -639,9 +645,22 @@ function Draw()
   end
 
   if checkboxDBG:get_value() then
+    if g_time - Last_cast_time >= 30.15 then return end -- fade out
+
     local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
+    local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
+    local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
+
     g_render:text(pos, COLOR, LastMsg, Font, 30)
+    g_render:text(pos1, COLOR, LastMsg1, Font, 30)
+    g_render:text(pos2, COLOR, LastMsg2, Font, 30)
+
   end
+  local target = features.target_selector:get_default_target()
+  -- if target then
+  --   --g_render:circle_3d(target:get_ai_manager().path_end, colors.solid.blue, 235, 2, 90, 2)
+  -- else Prints("no target for cai") end
+  
 end
 
 function Get_harass_minions_near(obj_hero_idx, range)
@@ -652,7 +671,7 @@ function Get_harass_minions_near(obj_hero_idx, range)
   --Prints("getting harass minions out of " .. tostring(#minions))
   for i, obj_minion in ipairs(minions) do
     if obj_hero and obj_minion and obj_minion:is_alive() and obj_minion:is_visible() and obj_minion:is_minion() and obj_minion:is_targetable() then
-      if (obj_minion:get_object_name() == "SRU_ChaosMinionRanged" or obj_minion:get_object_name() == "SRU_ChaosMinionMelee" or obj_minion:get_object_name() == "SRU_ChaosMinionSiege") then
+      if true then -- (obj_minion:get_object_name() == "SRU_ChaosMinionRanged" or obj_minion:get_object_name() == "SRU_ChaosMinionMelee" or obj_minion:get_object_name() == "SRU_ChaosMinionSiege")
         local exists = 0
         --Prints(" i can see and is alive: " .. tostring(obj_minion:get_object_name()))
         if obj_hero.position:dist_to(obj_minion.position) < range then
@@ -828,15 +847,56 @@ function Time_remaining_for_dash(cai)
   return time_remaining
 end
 
+
 function OnDash(index)
-  Prints("enter OnDash", 3)
   local tgt = features.entity_list:get_by_index(index)
+  local champion_name = string.lower(tgt.champion_name.text)
   local cai = tgt:get_ai_manager()
+  local spell_book = tgt:get_spell_book()
+  local cast_info = spell_book:get_spell_cast_info()
+
+  -- if (e_agc:get_value() or e_agc:get_value()) then
+  --   if cast_info ~= nil then
+  --     Prints(champion_name .. ":enter cast check" .. tostring(cast_info.slot), 2)
+  --     local casted_slot = cast_info.slot
+  --     if casted_slot >= 0  then  
+  --       Prints("looking at " .. string.lower(tgt.champion_name.text))
+  --       Prints("casted slot: " .. tostring(cast_info.slot))
+  --       local casted_ability = core.X.helper.Slot_to_letter(casted_slot)
+  --       Prints("Slot casted: " .. casted_slot .. ", ability: " .. casted_ability, 1)
+
+  --       -- Check if the local champion is in the dash_list_cfg
+  --       local is_dash = false
+  --       local champion_in_list = false
+  --       for _, details in ipairs(Dash_list_cfg) do
+  --           if string.find(details, champion_name) then
+  --               champion_in_list = true
+  --               break
+  --           end
+  --       end
+
+  --      Prints(champion_name .. " was in list: " .. tostring(champion_in_list))
+
+  --     -- Check if the casted ability is in the dash_list if champion is in the dash_list_cfg
+  --       if champion_in_list then
+  --           for _, ability in ipairs(Dash_list) do
+  --               if ability == casted_ability then
+  --                   is_dash = true
+  --                   break
+  --               end
+  --           end
+  --       end
+  --       if is_dash then Prints(casted_ability .. " is a dash!!!") else Prints(casted_ability .. " is not a dash") end
+  --     else Prints(champion_name .. ": slot came back -1", 1) end
+  --   else Prints(champion_name .. ": no cast info", 1) end
+  -- end
+
+
   if (e_agc:get_value() or e_agc:get_value()) and cai.is_dashing then
     Prints("checking for dashes", 2)
     if g_local.position:dist_to(cai.path_end) > Data['W'].Range then
       Prints("is dashing out of range of w :(" , 2)
-      return
+      return false
     end
     Prints("is dashing...", 2)
     local time_remaining = Time_remaining_for_dash(cai)
@@ -848,6 +908,7 @@ function OnDash(index)
       g_input:cast_spell(e_spell_slot.e, cai.path_end)
       features.orbwalker:set_cast_time(0.25)
       Last_cast_time = g_time
+      return true
     end
 
     -- dont w under tower unless already in combo mode
@@ -858,23 +919,24 @@ function OnDash(index)
       if not minion_block and g_local.position:dist_to(cai.path_end) > 300 then
         g_input:cast_spell(e_spell_slot.w, cai.path_end)
         Prints("attempted to cast W", 2)
+        return true
       end
     end
 
-    return true
+    return false
   end
   Prints("exit OnDash", 3)
 end
 
 function On_cc_special_channel(index)
-  Prints("cc check", 1)
+  Prints("cc check", 3)
   -- local cai = tgt:get_ai_manager()
   -- w_auto
   -- w_auto_cc  w_auto_channel w_auto_special 
   local enemy = features.entity_list:get_by_index(index)
   if enemy then
     if enemy:is_alive() and not enemy:is_invisible() then
-      Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile", 2)
+      Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile", 3)
 
       local should_cast_w = false
       local should_cast_e = false
@@ -941,9 +1003,9 @@ function OnTick()
       --Prints("check dash", 2)
       if not features.orbwalker:is_in_attack() and not features.evade:is_active() then
         -- if is dashing
+        Prints("check dash is dashing", 2)
+        OnDash(enemy.index)
         if enemy:get_ai_manager().is_dashing then
-          Prints("check dash is dashing", 2)
-          OnDash(enemy.index)
         end
         On_cc_special_channel(enemy.index)
       end
@@ -1102,6 +1164,7 @@ cheat.register_module(
       }
     end
   })
+
 Build_dash_list()
 cheat.register_callback("render", Draw)
 cheat.register_callback("feature", Refresh)
