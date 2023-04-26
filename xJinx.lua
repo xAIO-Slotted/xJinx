@@ -45,6 +45,8 @@
 
 
   local core = require("xCore") 
+  core:init()
+
 
 
   local Combo_key = 1
@@ -130,37 +132,12 @@
   Debug_level = 1
   Res = g_render:get_screensize()
   Font = 'roboto-regular'
+  colors = core.debug.Colors
   White = color:new(255, 255, 255)
   Red = color:new(255, 0, 0)
   Green = color:new(0, 255, 0)
   Blue = color:new(0, 0, 200)
-  local colors = {
-    solid = {
-        white = color:new(255, 255, 255),
-        red = color:new(255, 0, 0),
-        orange = color:new(255, 127, 0),
-        yellow = color:new(255, 255, 0),
-        green = color:new(0, 255, 0),
-        cyan = color:new(0, 255, 255),
-        blue = color:new(0, 0, 255),
-        purple = color:new(143, 0, 255)
-    },
-    transparent = {
-        white = color:new(255, 255, 255, 130),
-        red = color:new(255, 0, 0, 130),
-        orange = color:new(255, 127, 0, 130),
-        yellow = color:new(255, 255, 0, 130),
-        green = color:new(0, 255, 0, 130),
-        cyan = color:new(0, 255, 255, 130),
-        blue = color:new(0, 0, 255, 130),
-        purple = color:new(143, 0, 255, 200)
-    }
-  }
-  
   COLOR = White
-  LastMsg = "init"
-  LastMsg1 = "init"
-  LastMsg2 = "init"
   
   MinionInRange = {}
   MinionToHarass = {}
@@ -171,16 +148,7 @@
   Last_dbg_msg_time = g_time
   
   function Prints(str, level)
-    level = level or 1
-    str = tostring(str)
-    if level <= Debug_level then
-      print("log: " .. " " .. str)
-      if str ~= LastMsg then 
-        LastMsg2 = LastMsg1
-        LastMsg1 = LastMsg 
-        LastMsg = str
-      end
-    end
+    core.debug:Print(str,level)
   end
   
   
@@ -201,7 +169,7 @@
   -- Permashow
   
   -- Draw
-  local checkboxDBG = draw_sect:checkbox("debug messages", g_config:add_bool(true, "debug messages"))
+  -- local checkboxDBG = draw_sect:checkbox("debug messages", g_config:add_bool(true, "debug messages"))
   local checkboxVisualDmg = draw_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
   local checkboxDrawQ = draw_sect:checkbox("Draw alternate Q range", g_config:add_bool(true, "Draw alternate Q range"))
   local checkboxDrawW = draw_sect:checkbox("Draw W off cooldown", g_config:add_bool(true, "Draw W off cooldown"))
@@ -258,22 +226,6 @@
       enemy_far = false,
     },
   }
-  
-  function Data:Get_jinx_multiplier(index)
-    local target = features.entity_list:get_by_index(index)
-    local distance = g_local.position:dist_to(target.position)
-  
-    -- Calculate the damage scaling based on distance traveled (10% to 100%) (using W range as max R on)
-  
-    if g_local.position:dist_to(target.position) >= 1500 then
-        return 1
-    elseif g_local.position:dist_to(target.position) <= 100 then
-        return 0.1
-    else
-        return 0.1 + 0.9 * (distance / self['W'].Range)
-    end
-  end
-  
   
   function Data:refresh_data()
     Prints("refreshing", 3)
@@ -383,79 +335,6 @@
     return numAround
   end
   
-  function Data:calculate_W_damage(index)
-    local target = features.entity_list:get_by_index(index)
-    local baseDamage = {10, 60, 110, 160, 210}
-    local scalingFactor = 1.6
-    local AD = g_local:get_attack_damage()
-  
-    -- Get the current level of the W ability
-    local W_level = self['W'].Level
-  
-    -- Calculate the raw damage using the base damage and scaling factor
-    local rawDamage = baseDamage[W_level] + (AD * scalingFactor)
-  
-    -- Factor in the target's armor
-    local finalDamage = helper.calculate_damage(rawDamage, index, true)
-  
-    return finalDamage
-  end
-  
-  function Data:calculate_R_damage(index)
-    if not Data:can_cast('R') then return 0 end
-    local target = features.entity_list:get_by_index(index)
-    local baseDamage = {300, 450, 600}
-    local scalingFactor = 1.5
-    local missingHealthScaling = {0.25, 0.30, 0.35}
-  
-    -- Get the current level of the R ability
-    local R_level = self['R'].Level
-  
-    -- Get the bonus attack damage and base attack damage
-    local bonusAD = g_local.bonus_attack
-    local baseAD = g_local:get_attack_damage()
-  
-    -- Calculate the raw damage using the base damage and scaling factor
-    local rawDamage = baseDamage[R_level] + (bonusAD * scalingFactor)
-  
-    -- Add the missing health percentage damage
-    local target_missing_health = target.max_health - target.health
-    rawDamage = rawDamage + (target_missing_health * missingHealthScaling[R_level])
-  
-    -- Apply the damage scaling to the raw damage (excluding the missing health damage)
-    rawDamage = (baseDamage[R_level] + (bonusAD * scalingFactor)) * Data:Get_jinx_multiplier(index) + (target_missing_health * missingHealthScaling[R_level])
-  
-    -- Factor in the target's armor
-    local finalDamage = helper.calculate_damage(rawDamage, index, true)
-  
-    return finalDamage
-  end
-  
-  
-  
-  function Data:CalcDamage(index, rawDamage)
-    Prints("cdt", 3)
-    local target = features.entity_list:get_by_index(index)
-    if target == nil then return 0 end
-  
-    Prints("Calcing against: " .. target:get_object_name(), 2)
-    local armor = target.total_armor
-    local calc = (rawDamage * ( 100 / ( 100 + armor )))
-    Prints("lc", 3)
-    return calc
-  end
-  
-  function Data:CalcDamageCalcDamageAP(index, rawDamage)
-    local target = features.entity_list:get_by_index(index)
-    local mr = target.total_mr
-    return (rawDamage * ( 100 / ( 100 + mr )))
-  end
-  
-  function Data:calc_dmg(target, rawDamage)
-    Prints("dmg to " .. target:get_object_name() .. "before calc is " .. rawDamage, 3)
-    local armor = target.total_armor
-    return (rawDamage * (100 / (100 + armor)))
-  end
   
   function Build_dash_list()
     Dash_list = {}
@@ -463,7 +342,7 @@
     Prints("building dash list", 1)
     for _, enemy in pairs(features.entity_list:get_enemies()) do
         local enemy_champion_name = string.lower(enemy.champion_name.text)
-        if DB.Dash[enemy_champion_name] then
+        if core.database.DASH_LIST[enemy_champion_name] then
             Prints("adding ".. enemy_champion_name)
             local dash_data_list = DB.Dash[enemy_champion_name] 
             for _, dash_data in ipairs(dash_data_list) do
@@ -490,7 +369,7 @@
   
   
   function Show_splash_harass()
-    Prints("draw harass", 3)
+    Prints("draw harass", 2)
     if SplashabletargetIndex then
       local tgt = features.entity_list:get_by_index(SplashabletargetIndex)
       if tgt then
@@ -498,7 +377,7 @@
         -- circle the target
         g_render:circle_3d(tgt.position, Red, 235, 2, 90, 2)
         if MinionTable and #MinionTable > 0 then
-          --Prints("splash?", 1)
+          --Prints("splash?", 2)
           for ii, alive in ipairs(MinionTable) do
             local min = features.entity_list:get_by_index(alive.idx)
             if min then
@@ -512,7 +391,7 @@
     if SplashableMinionIndex then
       local min = features.entity_list:get_by_index(SplashableMinionIndex)
       if min then g_render:circle_3d(min.position, Green, 80, 2, 90, 2) end
-    end
+    else Prints("no splashable minion to draw lines too ", 3) end
   end
   
   function IsUnderTurret(pos)
@@ -533,29 +412,31 @@
   
   function Visualize_damage()
     if g_time - Last_cast_time <= 0.15 then return end
+    Prints("draw dmg in", 3)
   
     for i, enemy in pairs(features.entity_list:get_enemies()) do
-      if X.helper.is_alive(enemy.index) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+      if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
         local approx = 0
         local Killable = false
-        local aadmg = helper.get_aa_damage(enemy.index, false)
+        
+        local aadmg = core.damagelib:calc_aa_dmg(g_local, enemy)
         local wdmg =  0
         local rdmg =  0
         local nmehp = enemy.health
   
         approx = 3*aadmg
         if Data:can_cast('W') then
-          wdmg = Data:calculate_W_damage(enemy.index)
+          wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
           approx = approx + wdmg
         end
         if Data:can_cast('R') then
-          rdmg = Data:calculate_R_damage(enemy.index)
+          rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
           approx = approx + rdmg
         end
         if g_local.bonus_attack_speed + g_local.attack_speed > 1.5 then
           approx = approx + aadmg
         end
-  
+        
         local screen = g_render:get_screensize()
         local base_x = 2560
         local base_y = 1080
@@ -583,7 +464,8 @@
         end
     
         local box_size = vec2:new(box_size_x , bar_height)
-    
+        
+        
         g_render:filled_box(box_start, box_size, colors.transparent.purple)
         if approx >= (enemy.health + 5) then
             Killable = true
@@ -594,27 +476,10 @@
                 g_render:text(enemy.position:to_screen(), color:new(255,255,255), "KILLABLE", Font, 30) --Hold SHIFT to "..mode_text.." ultimate!
                 --g_render:circle(enemy.position:to_screen(), Square_color, 65, 90)
             end
-            -- Prints("drew circ", 1)
-        end
-    --     Prints("draw text", 1)
-    --     if enemy.position:to_screen() ~= nil then
-    --         Font = 'roboto-regular'
-    --         
-    --         Prints("drew text", 1)
-    --     end
-    -- end
-        -- Prints("AA will do " .. helper.get_aa_damage(target.index, false)  .. " to " .. target:get_object_name(), 3)
-        -- Prints("W will do " ..tostring(Data['W'].Damage) .. " to " .. target:get_object_name(), 3)
-        -- Prints("R will do " .. tostring(Data['R'].Damage) .. " to " .. target:get_object_name(), 3)
-         
+        end  
       end
     end
     Prints("tick exit", 3)
-  
-    --DrawLethal()ll
-    --local dmg_total = get_quick_combo_dmg()
-    
-    --local hp = target.health = local target = features.target_selector:get_default_target()
   end
   
   
@@ -635,75 +500,61 @@
   function Draw()
     Prints("Draws", 3)
     if checkboxJinxSplashHarass:get_value() then
+      Prints("draw harass", 2)
       Show_splash_harass()
     end
     if checkboxVisualDmg:get_value() then
-       Visualize_damage()
+      Visualize_damage()
     end
     if checkboxDrawQ:get_value() or checkboxDrawW:get_value() then
+      Prints("draw Q", 3)
       Visualize_spell_range()
-    end
-  
-    if checkboxDBG:get_value() then
-      if g_time - Last_cast_time >= 30.15 then return end -- fade out
-  
-      local pos = vec2:new((Res.x / 2) - 100, Res.y - 260)
-      local pos1 = vec2:new((Res.x / 2) - 100, Res.y - 290)
-      local pos2 = vec2:new((Res.x / 2) - 100, Res.y - 320)
-  
-      g_render:text(pos, COLOR, LastMsg, Font, 30)
-      g_render:text(pos1, COLOR, LastMsg1, Font, 30)
-      g_render:text(pos2, COLOR, LastMsg2, Font, 30)
-  
-    end
-    local target = features.target_selector:get_default_target()
-    -- if target then
-    --   --g_render:circle_3d(target:get_ai_manager().path_end, colors.solid.blue, 235, 2, 90, 2)
-    -- else Prints("no target for cai") end
-    
+    end  
   end
   
   function Get_harass_minions_near(obj_hero_idx, range)
-    Prints("get harass", 3)
+    Prints("get harass", 2)
     local obj_hero = features.entity_list:get_by_index(obj_hero_idx)
     local minions = features.entity_list:get_enemy_minions()
     --Prints("getting harass minions in range of " .. tostring(obj_hero:get_object_name()) .. " x= " .. tostring(range) )
     --Prints("getting harass minions out of " .. tostring(#minions))
     for i, obj_minion in ipairs(minions) do
-      if obj_hero and obj_minion and X.helper.is_alive(obj_minion.index) and obj_minion:is_visible() and obj_minion:is_minion() and obj_minion:is_targetable() then
-        if true then -- (obj_minion:get_object_name() == "SRU_ChaosMinionRanged" or obj_minion:get_object_name() == "SRU_ChaosMinionMelee" or obj_minion:get_object_name() == "SRU_ChaosMinionSiege")
-          local exists = 0
-          --Prints(" i can see and is alive: " .. tostring(obj_minion:get_object_name()))
-          if obj_hero.position:dist_to(obj_minion.position) < range then
-            --Prints("i see one " .. tostring(obj_hero.position:dist_to(obj_minion.position)))
-            if MinionTable and #MinionTable > 0 then
-              -- Prints("checking if our list already has " .. obj_minion.index)
-              for ii, alive in ipairs(MinionTable) do
-                --Prints("have: " .. alive.idx .. " check: " .. obj_minion.index)
-                if alive.idx == obj_minion.index then
-                  --Prints("we do!", 1)
-                  exists = 1
+      if obj_hero and obj_minion then 
+        if obj_hero and obj_minion and core.helper:is_alive(obj_minion) and obj_minion:is_visible() and obj_minion:is_minion() and obj_minion:is_targetable() then
+          if true then -- (obj_minion:get_object_name() == "SRU_ChaosMinionRanged" or obj_minion:get_object_name() == "SRU_ChaosMinionMelee" or obj_minion:get_object_name() == "SRU_ChaosMinionSiege")
+            local exists = 0
+            --Prints(" i can see and is alive: " .. tostring(obj_minion:get_object_name()))
+            if obj_hero.position:dist_to(obj_minion.position) < range then
+              --Prints("i see one " .. tostring(obj_hero.position:dist_to(obj_minion.position)))
+              if MinionTable and #MinionTable > 0 then
+                -- Prints("checking if our list already has " .. obj_minion.index)
+                for ii, alive in ipairs(MinionTable) do
+                  --Prints("have: " .. alive.idx .. " check: " .. obj_minion.index)
+                  if alive.idx == obj_minion.index then
+                    --Prints("we do!", 1)
+                    exists = 1
+                  end
                 end
               end
             end
-          end
-          if exists == 0 then
-            table.insert(MinionTable, { idx = obj_minion.index })
-          end
-        end
-        if MinionTable and #MinionTable > 0 then
-          for ii, alive_idx in ipairs(MinionTable) do
-            local remove = false
-            local alive = features.entity_list:get_by_index(alive_idx.idx)
-            if alive then
-              if obj_hero.position:dist_to(alive.position) > range then remove = true end
-              if X.helper.is_alive(alive.index) == false then remove = true end
-              if alive:is_visible() == false then remove = true end
-            else
-              remove = true
+            if exists == 0 then
+              table.insert(MinionTable, { idx = obj_minion.index })
             end
-            if remove then
-              table.remove(MinionTable, ii)
+          end
+          if MinionTable and #MinionTable > 0 then
+            for ii, alive_idx in ipairs(MinionTable) do
+              local remove = false
+              local alive = features.entity_list:get_by_index(alive_idx.idx)
+              if alive then
+                if obj_hero.position:dist_to(alive.position) > range then remove = true end
+                if core.helper:is_alive(alive) == false then remove = true end
+                if alive:is_visible() == false then remove = true end
+              else
+                remove = true
+              end
+              if remove then
+                table.remove(MinionTable, ii)
+              end
             end
           end
         end
@@ -721,7 +572,7 @@
         SplashabletargetIndex = nil
       elseif hero_obj.position:dist_to(hero_obj.position) > Data['AA'].long_range + 260 then
         SplashabletargetIndex = nil
-      elseif X.helper.is_alive(hero_obj.index) == false then
+      elseif core.helper:is_alive(hero_obj) == false then
         SplashabletargetIndex = nil
       elseif hero_obj:is_visible() == false then
         SplashabletargetIndex = nil
@@ -733,7 +584,7 @@
           SplashableMinionIndex = nil
         elseif hero_obj.position:dist_to(min_obj.position) > 235 then
           SplashableMinionIndex = nil
-        elseif X.helper.is_alive(min_obj.index) == false then
+        elseif core.helper:is_alive(min_obj) == false then
           SplashableMinionIndex = nil
         elseif min_obj:is_visible() == false then
           SplashableMinionIndex = nil
@@ -773,7 +624,7 @@
     ValidateSplashMinionAndtarget()
   
     --is target outside normal Q range?
-    if X.helper.is_alive(target.index) and target:is_visible() and g_local.position:dist_to(target.position) > Data['AA'].long_range then
+    if core.helper:is_alive(target) and target:is_visible() and g_local.position:dist_to(target.position) > Data['AA'].long_range then
       if g_local.position:dist_to(target.position) < Data['AA'].long_range + 260 then
         --Prints("target is inside splash range.", 1)
         -- if we already have a splash minion then why are we still searching
@@ -822,7 +673,7 @@
         Prints("not atkble manual ulti", 1)
         return false
       end
-      if not (X.helper.is_alive(target.index) and target:is_visible()) then
+      if not (core.helper:is_alive(target) and target:is_visible()) then
         Prints("dead or invis tgt manual ulti", 1)
         return false
       end
@@ -935,7 +786,7 @@
     -- w_auto_cc  w_auto_channel w_auto_special 
     local enemy = features.entity_list:get_by_index(index)
     if enemy then
-      if X.helper.is_alive(enemy.index) and not enemy:is_invisible() then
+      if core.helper:is_alive(enemy) and not enemy:is_invisible() then
         Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile", 3)
   
         local should_cast_w = false
@@ -999,7 +850,7 @@
     if g_time - Last_cast_time <= 0.05 then return end
     Prints("tick...", 3)
     for i, enemy in pairs(features.entity_list:get_enemies()) do
-      if X.helper.is_alive(enemy.index) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+      if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
         --Prints("check dash", 2)
         if not features.orbwalker:is_in_attack() and not features.evade:is_active() then
           -- if is dashing
@@ -1081,7 +932,7 @@
               end
             end
             -- dont W if theyre in range and could kill in less than 4 autos
-            if math.ceil(target.health / Data:calc_dmg(target, Data['AA'].Damage)) > 4 and Data['AA'].enemy_far then skip_cast = true end
+            if math.ceil(target.health / core.damagelib:calc_aa_dmg(g_local, target)) > 4 and Data['AA'].enemy_far then skip_cast = true end
             Prints("skip w? " .. tostring(skip_cast), 3)
   
             if not skip_cast then
@@ -1141,7 +992,7 @@
         local mode = features.orbwalker:get_mode()
         local target = features.target_selector:get_default_target()
         if target == nil then return false end
-        local dmg = 5 > math.ceil(target.health / Data:calc_dmg(target, Data['AA'].Damage))
+        local dmg = 5 > math.ceil(target.health / core.damagelib:calc_aa_dmg(g_local, target))
         if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('R') then
         end
   
@@ -1165,7 +1016,9 @@
       end
     })
   
+  
   Build_dash_list()
+  
   cheat.register_callback("render", Draw)
   cheat.register_callback("feature", Refresh)
   cheat.register_callback("feature", Splash_harass)
