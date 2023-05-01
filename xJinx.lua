@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-Jinx_VERSION = "1.0.3"
+Jinx_VERSION = "1.0.4"
 Jinx_LUA_NAME = "xJinx.lua"
 Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -769,34 +769,34 @@ function OnDash(index)
   local spell_book = tgt:get_spell_book()
   local cast_info = spell_book:get_spell_cast_info()
 
- if (e_agc:get_value() or e_agc:get_value()) then
-	local has_dash = core.database:has_dash(tgt) 
+--  if (e_agc:get_value() or e_agc:get_value()) then
+-- 	local has_dash = core.database:has_dash(tgt) 
 
-    if cast_info ~= nil and has_dash then
-      Prints(champion_name .. ": enter cast check" .. tostring(cast_info.slot), 2)
-      local casted_slot = cast_info.slot
-      if casted_slot >= 0 and casted_slot <= 50  then
-        Prints("looking at " .. string.lower(tgt.champion_name.text), 1)
-		Prints("casted slot: " .. tostring(cast_info.name), 1)
-        Prints("casted slot: " .. tostring(cast_info.slot), 1)
+--     if cast_info ~= nil and has_dash then
+--       Prints(champion_name .. ": enter cast check" .. tostring(cast_info.slot), 2)
+--       local casted_slot = cast_info.slot
+--       if casted_slot >= 0 and casted_slot <= 50  then
+--         Prints("looking at " .. string.lower(tgt.champion_name.text), 1)
+-- 		Prints("casted slot: " .. tostring(cast_info.name), 1)
+--         Prints("casted slot: " .. tostring(cast_info.slot), 1)
 	  
-        -- Check if the local champion is in the dash_list_cfg
-        local is_dash = false
+--         -- Check if the local champion is in the dash_list_cfg
+--         local is_dash = false
 
-		local champion_dash_list = core.database.DASH_LIST[champion_name]
-		if champion_dash_list ~= nil then
-		  for _, ability_slot in ipairs(champion_dash_list) do
-			if casted_slot == ability_slot then
-			  is_dash = true
-			  break
-			end
-		  end
-		end
+-- 		local champion_dash_list = core.database.DASH_LIST[champion_name]
+-- 		if champion_dash_list ~= nil then
+-- 		  for _, ability_slot in ipairs(champion_dash_list) do
+-- 			if casted_slot == ability_slot then
+-- 			  is_dash = true
+-- 			  break
+-- 			end
+-- 		  end
+-- 		end
 
-        if is_dash then Prints(tostring(casted_slot) .. " is a dash!!!") else Prints(tostring(casted_slot) .. " is not a dash") end
-      else Prints(champion_name .. ": slot came back -1", 3) end
-    else Prints(champion_name .. ": no cast info", 3) end
-  end
+--         if is_dash then Prints(tostring(casted_slot) .. " is a dash!!!") else Prints(tostring(casted_slot) .. " is not a dash") end
+--       else Prints(champion_name .. ": slot came back -1", 3) end
+--     else Prints(champion_name .. ": no cast info", 3) end
+--   end
 
 
   if (e_agc:get_value() or e_agc:get_value()) and cai.is_dashing then
