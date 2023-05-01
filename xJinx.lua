@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-Jinx_VERSION = "1.0.4"
+Jinx_VERSION = "1.0.5"
 Jinx_LUA_NAME = "xJinx.lua"
 Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -11,6 +11,10 @@ core:init()
 local function fetch_remote_version_number()
     local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. Jinx_REPO_SCRIPT_PATH
     local handle = io.popen(command)
+    if not handle then
+      print("Failed to fetch the remote version number.")
+      return nil
+    end
     local content = handle:read("*a")
     handle:close()
 
@@ -47,8 +51,13 @@ local function check_for_update()
   if remote_version and remote_version > Jinx_VERSION then
       local command = "curl -s " .. Jinx_REPO_SCRIPT_PATH
       local handle = io.popen(command)
+      if not handle then
+          Prints("Failed to fetch the remote script.", 0)
+          return
+      end
       local latest_version_script = handle:read("*a")
       handle:close()
+  
   
       if latest_version_script then
           if replace_current_file_with_latest_version(latest_version_script) then
