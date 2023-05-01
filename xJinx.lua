@@ -1,9 +1,71 @@
 -- xJinx by Jay and a bit of ampx.
 
+Jinx_VERSION = "1.0.1"
+Jinx_LUA_NAME = "xJinx.lua"
+Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/JayBuckley7/SlottedLua/main/"
+Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
+
 local core = require("xCore")
 core:init()
 
-VERSION = "1.0.1"
+local function fetch_remote_version_number()
+    local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. Jinx_REPO_SCRIPT_PATH
+    local handle = io.popen(command)
+    local content = handle:read("*a")
+    handle:close()
+
+    if content == "" then
+        print("Failed to fetch the remote version number.")
+        return nil
+    end
+
+    local remote_version = content:match("VERSION%s*=%s*\"(%d+%.%d+%.%d+)\"")
+
+    return remote_version
+end
+
+local function replace_current_file_with_latest_version(latest_version_script)
+    local resources_path = cheat:get_resource_path()
+    local current_file_path = resources_path:gsub("resources$", "lua/" .. Jinx_LUA_NAME)
+
+    local file, errorMessage = io.open(current_file_path, "w")
+
+    if not file then
+        print("Failed to open the current file for writing. Error: ", errorMessage)
+        return false
+    end
+
+    file:write(latest_version_script)
+    file:close()
+
+    return true
+end
+
+local function check_for_update()
+  local remote_version = fetch_remote_version_number()
+  Prints("local version: " .. Jinx_VERSION .. " remote version: " .. remote_version, 0)
+  if remote_version and remote_version > Jinx_VERSION then
+      local command = "curl -s " .. Jinx_REPO_SCRIPT_PATH
+      local handle = io.popen(command)
+      local latest_version_script = handle:read("*a")
+      handle:close()
+  
+      if latest_version_script then
+          if replace_current_file_with_latest_version(latest_version_script) then
+            Prints("Please click reload lua ", 0)
+              Prints("Successfully updated " .. Jinx_LUA_NAME .. " to version " .. remote_version .. ".", 0)
+              Prints("Please click reload lua  ", 0)
+              -- You may need to restart the program to use the updated script
+          else
+              Prints("Failed to update " .. Jinx_LUA_NAME .. ".", 0)
+          end
+      end
+  else
+      Prints("You are running the latest version of " .. Jinx_LUA_NAME .. ".", 0)
+  end
+end
+
+
 local std_math = math
 local Idle_key = 0
 local Combo_key = 1
@@ -707,34 +769,34 @@ function OnDash(index)
   local spell_book = tgt:get_spell_book()
   local cast_info = spell_book:get_spell_cast_info()
 
---  if (e_agc:get_value() or e_agc:get_value()) then
--- 	local has_dash = core.database:has_dash(tgt) 
+ if (e_agc:get_value() or e_agc:get_value()) then
+	local has_dash = core.database:has_dash(tgt) 
 
---     if cast_info ~= nil and has_dash then
---       Prints(champion_name .. ": enter cast check" .. tostring(cast_info.slot), 2)
---       local casted_slot = cast_info.slot
---       if casted_slot >= 0 and casted_slot <= 50  then
---         Prints("looking at " .. string.lower(tgt.champion_name.text), 1)
--- 		Prints("casted slot: " .. tostring(cast_info.name), 1)
---         Prints("casted slot: " .. tostring(cast_info.slot), 1)
+    if cast_info ~= nil and has_dash then
+      Prints(champion_name .. ": enter cast check" .. tostring(cast_info.slot), 2)
+      local casted_slot = cast_info.slot
+      if casted_slot >= 0 and casted_slot <= 50  then
+        Prints("looking at " .. string.lower(tgt.champion_name.text), 1)
+		Prints("casted slot: " .. tostring(cast_info.name), 1)
+        Prints("casted slot: " .. tostring(cast_info.slot), 1)
 	  
---         -- Check if the local champion is in the dash_list_cfg
---         local is_dash = false
+        -- Check if the local champion is in the dash_list_cfg
+        local is_dash = false
 
--- 		local champion_dash_list = core.database.DASH_LIST[champion_name]
--- 		if champion_dash_list ~= nil then
--- 		  for _, ability_slot in ipairs(champion_dash_list) do
--- 			if casted_slot == ability_slot then
--- 			  is_dash = true
--- 			  break
--- 			end
--- 		  end
--- 		end
+		local champion_dash_list = core.database.DASH_LIST[champion_name]
+		if champion_dash_list ~= nil then
+		  for _, ability_slot in ipairs(champion_dash_list) do
+			if casted_slot == ability_slot then
+			  is_dash = true
+			  break
+			end
+		  end
+		end
 
---         if is_dash then Prints(tostring(casted_slot) .. " is a dash!!!") else Prints(tostring(casted_slot) .. " is not a dash") end
---       else Prints(champion_name .. ": slot came back -1", 3) end
---     else Prints(champion_name .. ": no cast info", 3) end
---   end
+        if is_dash then Prints(tostring(casted_slot) .. " is a dash!!!") else Prints(tostring(casted_slot) .. " is not a dash") end
+      else Prints(champion_name .. ": slot came back -1", 3) end
+    else Prints(champion_name .. ": no cast info", 3) end
+  end
 
 
   if (e_agc:get_value() or e_agc:get_value()) and cai.is_dashing then
@@ -979,6 +1041,9 @@ function OnTick()
 end
 
 function Refresh() Data:refresh_data() end
+
+
+check_for_update()
 
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
