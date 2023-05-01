@@ -1,50 +1,16 @@
 -- xJinx by Jay and a bit of ampx.
 
--- TODO
--- Farming
--- -- add clear and fast clear logic
--- Combo
--- -- investigte more options
-
--- -=--==-=-=-=-=-
--- Features
--- Combo Q swap
--- Combo W
-
--- harass
--- -- harass Q swap
--- -- -- optional Extend AutoAttack range with minion splash radius
--- -- harass W
-
--- Auto Chain CC/immobile/channel/Dash traps (prediction / timing based)
--- Auto Chain CC/immobile/channel/Dash laser (prediction / timing based)
-
--- semiAutoR (while holding U)
--- SemiAutoW (Full combo)
-
--- Auto KS with R
-
--- Damage visualizer
--- -- HP bar shows damage of 3 autos + W and R if available or 4 autos if attack speed is above 1.5
--- -- "Combo Kill" text shows if hp below W+R
--- -- "W Kill" text shows if hp below W
--- -- "AA Kill" shows if hp below AA damage
-
--- Harass visualizer
--- Draws circle around target who could be safely hit by attacking a minion when otherwise impossible to reach
-
--- Debug toggle [Shows all debug message on screen]
-
-
 local core = require("xCore")
 core:init()
 
-
-
+VERSION = "1.0.1"
+local std_math = math
+local Idle_key = 0
 local Combo_key = 1
 local Clear_key = 3
 local Harass_key = 4
 local Flee_key = 5
+
 
 -- Should be way better than current Jinx. Any more suggestions? DM me on Discord: dizzy#6092 :).
 local name = "xAIO - Jinx"
@@ -85,27 +51,24 @@ local r_combo_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "
   { "low", "medium", "high", "very_high", "immobile" })
 
 -- Clear
-local q_clear = clear_sect:checkbox("use Q", g_config:add_bool(true, "q_clear"))
+local q_clear_cfg = g_config:add_bool(true, "q_clear")
+local q_clear = clear_sect:checkbox("use Q", q_clear_cfg)
 local q_clear_aoe = clear_sect:checkbox("^ try AOE", g_config:add_bool(true, "q_clear_aoe"))
 local q_clear_aoe_count = clear_sect:slider_int("^ if x enemies", q_clear_aoe_count_cfg, 0, 5, 1)
 
 -- Harass
-local checkboxJinxSplashHarass = harass_sect:checkbox("extend aa range with Q splash",
-  g_config:add_bool(true, "splash_harass"))
+local splash_harass_cfg = g_config:add_bool(true, "splash_harass")
+local checkboxJinxSplashHarass = harass_sect:checkbox("extend aa range with Q splash", splash_harass_cfg)
+
 
 -- Auto
 local q_auto = auto_sect:checkbox("auto Q swapping", g_config:add_bool(true, "q_auto"))
 local extend_q_auto = auto_sect:checkbox("auto Q harass", g_config:add_bool(true, "auto q splash harass"))
 
 local w_auto = auto_sect:checkbox("auto W", g_config:add_bool(true, "w_auto"))
--- local w_auto_cc = auto_sect:checkbox("^ on cc", g_config:add_bool(true, "w_auto_cc"))
--- local w_auto_channel = auto_sect:checkbox("^ on channel", g_config:add_bool(true, "w_auto_channel"))
--- local w_auto_special = auto_sect:checkbox("^ on special", g_config:add_bool(true, "w_auto_special"))
 
 local e_auto = auto_sect:checkbox("auto E", g_config:add_bool(true, "e_auto"))
--- local e_auto_cc = auto_sect:checkbox("^ on cc", g_config:add_bool(true, "e_auto_cc"))
--- local e_auto_channel = auto_sect:checkbox("^ on channel", g_config:add_bool(true, "e_auto_channel"))
--- local e_auto_special = auto_sect:checkbox("^ on special", g_config:add_bool(true, "e_auto_special"))
+
 
 local r_auto = auto_sect:checkbox("auto R", g_config:add_bool(true, "r_auto"))
 local r_auto_dashless = auto_sect:checkbox("^ if no dash", g_config:add_bool(true, "r_auto_dashless"))
@@ -119,10 +82,13 @@ local Dash_list_cfg = {}
 
 core.permashow:set_title(name)
 
-core.permashow:register_toggle("farm", "Spellfarm", "A")
+-- Clear
+core.permashow:register("farm", "farm", "A", true, q_clear_cfg)
 core.permashow:register("Fast W", "Fast W", "control")
 core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")
-core.permashow:register_toggle("Extend AA To Harass", "Extend AA To Harass", "I")
+core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true, splash_harass_cfg)
+
+
 
 
 -- 0 = nothing
@@ -144,6 +110,7 @@ MinionToHarass = {}
 SplashableTargetIndex = nil
 SplashableMinionIndex = nil
 MinionTable = {}
+Last_Q_swap_time = g_time
 Last_cast_time = g_time
 Last_dbg_msg_time = g_time
 
@@ -255,7 +222,7 @@ function Data:refresh_data()
 
   self['W'].Level = g_local:get_spell_book():get_spell_slot(e_spell_slot.w).level
   self['W'].spell = g_local:get_spell_book():get_spell_slot(e_spell_slot.w)
-  self['W'].castTime = math.max(0.6 - 0.02 * math.floor(g_local.bonus_attack_speed / 0.25), 0.4)
+  self['W'].castTime = std_math.max(0.6 - 0.02 * std_math.floor(g_local.bonus_attack_speed / 0.25), 0.4)
 
   self['E'].Level = g_local:get_spell_book():get_spell_slot(e_spell_slot.e).level
   self['E'].spell = g_local:get_spell_book():get_spell_slot(e_spell_slot.e)
@@ -334,36 +301,6 @@ function Data:count_enemies(range, position)
   return numAround
 end
 
-function Build_dash_list()
-  Dash_list = {}
-  Dash_list_cfg = {}
-  Prints("building dash list", 1)
-  for _, enemy in pairs(features.entity_list:get_enemies()) do
-    local enemy_champion_name = string.lower(enemy.champion_name.text)
-    if core.database.DASH_LIST[enemy_champion_name] then
-      Prints("adding " .. enemy_champion_name)
-      local dash_data_list = DB.Dash[enemy_champion_name]
-      for _, dash_data in ipairs(dash_data_list) do
-        local details = enemy_champion_name .. tostring(dash_data.menuslot)
-        local dash = g_config:add_bool(false, details)
-        table.insert(Dash_list, dash_data.menuslot)         -- Store the ability letter
-        table.insert(Dash_list_cfg, details)
-      end
-    end
-  end
-  Prints("built dash lists", 1)
-  -- local local_champion_name = string.lower(g_local.champion_name.text)
-  -- if x.DB.Dash[local_champion_name] then
-  --     Prints("adding ".. local_champion_name)
-  --     local dash_data_list = x.DB.Dash[local_champion_name]
-  --     for _, dash_data in ipairs(dash_data_list) do
-  --         local details = local_champion_name .. tostring(dash_data.menuslot)
-  --         local dash = g_config:add_bool(false, details)
-  --         table.insert(Dash_list, dash_data.menuslot)  -- Store the ability letter
-  --         table.insert(Dash_list_cfg, details)
-  --     end
-  -- end
-end
 
 function Show_splash_harass()
   Prints("draw harass", 3)
@@ -415,9 +352,6 @@ function Get_target()
   return target
 end
 
-function KillSteal()
-
-end
 
 function Visualize_damage()
   if g_time - Last_cast_time <= 0.15 then return end
@@ -429,7 +363,7 @@ function Visualize_damage()
       local Killable = false
 
       local aadmg = core.damagelib:calc_aa_dmg(g_local, enemy)
-      local AAtoKill = math.ceil(enemy.health / aadmg)
+      local AAtoKill = std_math.ceil(enemy.health / aadmg)
       local wdmg = 0
       local rdmg = 0
       local nmehp = enemy.health
@@ -524,7 +458,7 @@ function Draw()
 end
 
 function Get_harass_minions_near(obj_hero_idx, range)
-  Prints("get harass", 2)
+  Prints("get harass", 3)
   local obj_hero = features.entity_list:get_by_index(obj_hero_idx)
   local minions = features.entity_list:get_enemy_minions()
   --Prints("getting harass minions in range of " .. tostring(obj_hero:get_object_name()) .. " x= " .. tostring(range) )
@@ -599,6 +533,10 @@ function ValidateSplashMinionAndtarget()
         SplashableMinionIndex = nil
       elseif min_obj:is_visible() == false then
         SplashableMinionIndex = nil
+      elseif min_obj:is_minion() == false then
+        SplashableMinionIndex = nil
+      elseif min_obj:is_targetable() == false then
+        SplashableMinionIndex = nil
       end
       -- if SplashableMinionIndex then Prints("Splashable Minion valid", 1) else Prints("Splashable Minion removed", 1) end
     end
@@ -625,7 +563,23 @@ function FindSplashableMinion()
   end
 end
 
+function Get_minions(range)
+  local minions_in_range = {}
+  local all_enemy_minions = features.entity_list:get_enemy_minions()
+
+  for _, minion in ipairs(all_enemy_minions) do
+    if minion ~= nil and core.helper:is_alive(minion) and minion:is_visible() and minion:is_minion() and minion:is_targetable() then
+      if g_local.position:dist_to(minion.position) <= range then
+          table.insert(minions_in_range, minion)
+      end
+    end
+  end
+
+  return minions_in_range
+end
+
 function Splash_harass()
+  if g_local:is_recalling() then return false end
   if checkboxJinxSplashHarass:get_value() == false then return false end
   if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('Q') then return false end
   local target = Get_target()
@@ -651,7 +605,7 @@ function Splash_harass()
               g_local.attack_speed, g_local.position)
 
             if g_local.position:dist_to(min_pred.position) < Data['AA'].long_range then
-              Prints("sending extendo attack to minion", 1)
+              Prints("sending extendo attack to " .. min_obj:get_object_name(), 1)
               if nme_pred.position:dist_to(min_pred.position) < 235 then
                 if Data['AA'].rocket_launcher == false then g_input:cast_spell(e_spell_slot.q) end
                 if features.orbwalker:can_attack() and not features.orbwalker:is_in_attack() then
@@ -670,8 +624,37 @@ end
 function IsBadTarget(target_index)
   return features.target_selector:is_bad_target(target_index)
 end
-
+local function enemy_buff_name() --- prints all ally buffs names
+  
+  for i, ally in pairs(features.entity_list:get_enemies()) do
+      for j, buff in pairs(features.buff_cache:get_all_buffs(ally.index)) do
+          Prints(ally.champion_name.text.." buff: "..buff.name)
+          print("active: " .. tostring(buff.active))
+          print("hard_cc: " .. tostring(buff.hard_cc))
+          print("disabling: " .. tostring(buff.disabling))
+          print("knock_up: " .. tostring(buff.knock_up))
+          print("silence: " .. tostring(buff.silence))
+          print("cripple: " .. tostring(buff.cripple))
+          print("invincible: " .. tostring(buff.invincible))
+          print("slow: " .. tostring(buff.slow))
+          print("type: " .. tostring(buff.type))
+          print("start_time: " .. tostring(buff.start_time))
+          print("end_time: " .. tostring(buff.end_time))
+          print("alt_amount: " .. tostring(buff.alt_amount))
+          print("name: " .. tostring(buff.name))
+          print("amount: " .. tostring(buff.amount))
+      end
+  end
+end
+function PrintBuffs()
+  if g_input:is_key_pressed(85) == true then
+    if g_input:is_key_pressed(85) == true then
+      enemy_buff_name() -- prints all enemy buffs names
+    end
+  end
+end
 function SemiAutoR()
+  if g_local:is_recalling() then return false end
   if checkboxManR:get_value() == false then return false end
   if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('R') then return false end
   if g_input:is_key_pressed(85) == true then   -- 85 is U key T is 84, Y is 89
@@ -711,7 +694,7 @@ function Time_remaining_for_dash(cai)
   local dy = cai.path_end.y - cai.path_start.y
   local dz = cai.path_end.z - cai.path_start.z
 
-  local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+  local distance = std_math.sqrt(dx * dx + dy * dy + dz * dz)
   local time_remaining = distance / cai.dash_speed
 
   return time_remaining
@@ -724,41 +707,34 @@ function OnDash(index)
   local spell_book = tgt:get_spell_book()
   local cast_info = spell_book:get_spell_cast_info()
 
-  -- if (e_agc:get_value() or e_agc:get_value()) then
-  --   if cast_info ~= nil then
-  --     Prints(champion_name .. ":enter cast check" .. tostring(cast_info.slot), 2)
-  --     local casted_slot = cast_info.slot
-  --     if casted_slot >= 0  then
-  --       Prints("looking at " .. string.lower(tgt.champion_name.text))
-  --       Prints("casted slot: " .. tostring(cast_info.slot))
-  --       local casted_ability = core.X.helper.Slot_to_letter(casted_slot)
-  --       Prints("Slot casted: " .. casted_slot .. ", ability: " .. casted_ability, 1)
+--  if (e_agc:get_value() or e_agc:get_value()) then
+-- 	local has_dash = core.database:has_dash(tgt) 
 
-  --       -- Check if the local champion is in the dash_list_cfg
-  --       local is_dash = false
-  --       local champion_in_list = false
-  --       for _, details in ipairs(Dash_list_cfg) do
-  --           if string.find(details, champion_name) then
-  --               champion_in_list = true
-  --               break
-  --           end
-  --       end
+--     if cast_info ~= nil and has_dash then
+--       Prints(champion_name .. ": enter cast check" .. tostring(cast_info.slot), 2)
+--       local casted_slot = cast_info.slot
+--       if casted_slot >= 0 and casted_slot <= 50  then
+--         Prints("looking at " .. string.lower(tgt.champion_name.text), 1)
+-- 		Prints("casted slot: " .. tostring(cast_info.name), 1)
+--         Prints("casted slot: " .. tostring(cast_info.slot), 1)
+	  
+--         -- Check if the local champion is in the dash_list_cfg
+--         local is_dash = false
 
-  --      Prints(champion_name .. " was in list: " .. tostring(champion_in_list))
+-- 		local champion_dash_list = core.database.DASH_LIST[champion_name]
+-- 		if champion_dash_list ~= nil then
+-- 		  for _, ability_slot in ipairs(champion_dash_list) do
+-- 			if casted_slot == ability_slot then
+-- 			  is_dash = true
+-- 			  break
+-- 			end
+-- 		  end
+-- 		end
 
-  --     -- Check if the casted ability is in the dash_list if champion is in the dash_list_cfg
-  --       if champion_in_list then
-  --           for _, ability in ipairs(Dash_list) do
-  --               if ability == casted_ability then
-  --                   is_dash = true
-  --                   break
-  --               end
-  --           end
-  --       end
-  --       if is_dash then Prints(casted_ability .. " is a dash!!!") else Prints(casted_ability .. " is not a dash") end
-  --     else Prints(champion_name .. ": slot came back -1", 1) end
-  --   else Prints(champion_name .. ": no cast info", 1) end
-  -- end
+--         if is_dash then Prints(tostring(casted_slot) .. " is a dash!!!") else Prints(tostring(casted_slot) .. " is not a dash") end
+--       else Prints(champion_name .. ": slot came back -1", 3) end
+--     else Prints(champion_name .. ": no cast info", 3) end
+--   end
 
 
   if (e_agc:get_value() or e_agc:get_value()) and cai.is_dashing then
@@ -797,116 +773,200 @@ function OnDash(index)
   Prints("exit OnDash", 3)
 end
 
-function On_cc_special_channel(index)
-  Prints("cc check", 3)
-  -- local cai = tgt:get_ai_manager()
-  -- w_auto
-  -- w_auto_cc  w_auto_channel w_auto_special
+function Has_stasis(enemy)
+  local stasis_end_time = 0
+  local has_stasis = false
+
+  for _, buff in ipairs(features.buff_cache:get_all_buffs(enemy.index)) do
+    if buff.name == "ChronoRevive" or buff.name == "ZhonyasRingShield" then
+      stasis_end_time = buff.end_time
+      Prints("found stasis of type" .. buff.name .. " ending at " .. tostring(stasis_end_time).. " on " .. enemy.champion_name.text, 3)
+      has_stasis = true
+    end
+  end
+
+  return has_stasis, stasis_end_time
+end
+
+function On_stasis_special_channel(index)
   local enemy = features.entity_list:get_by_index(index)
   if enemy then
-    if core.helper:is_alive(enemy) and not enemy:is_invisible() then
-      Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile", 3)
-
+    local has_stasis_buff, stasis_end_time = Has_stasis(enemy)
+    if has_stasis_buff then
       local should_cast_w = false
       local should_cast_e = false
 
-      local is_immobile = false
-      local is_ccd = false
-      --local is_channeling = false
-
-      if features.buff_cache:is_immobile(enemy.index) then is_ccd = true end
-      if features.buff_cache:has_hard_cc(enemy.index) then is_immobile = true end
-
-      if is_immobile or is_ccd then
-        Prints("is ccd or immobile looking to cast", 1)
-
-        if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
-          should_cast_w = true
-        end
-        -- please dont laser under enemy tower lol
-        if (IsUnderTurret(g_local.position) and not features.orbwalker:get_mode() == Combo_key) then
-          should_cast_w = false
-        end
-
-        if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
-          should_cast_e = true
-        end
+      if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+        should_cast_w = true
       end
 
+      if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+        should_cast_e = true
+      end
+      if should_cast_e == false and should_cast_w == false then return end
+      local remaining_stasis_time = stasis_end_time - g_time
+  
       if should_cast_e or should_cast_w then
-        Prints("lets cast something", 2)
-
-        if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
-          local eHit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0,
-            g_local.position)
-          if eHit.valid and eHit.hitchance >= 2 then
-            g_input:cast_spell(e_spell_slot.e, eHit.position)
+        Prints("okay lets try hand stasis",3)
+        if should_cast_e then
+          local time_to_cast_e = 0.9
+          Prints("E stasis cast: " .. tostring(remaining_stasis_time), 2)
+          if remaining_stasis_time <= time_to_cast_e then
+            local eHit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0, g_local.position)
+            if eHit.valid and eHit.hitchance >= 2 then
+              g_input:cast_spell(e_spell_slot.e, eHit.position)
+              features.orbwalker:set_cast_time(0.25)
+              Last_cast_time = g_time
+              return true
+            end
           end
-          features.orbwalker:set_cast_time(0.25)
-          Last_cast_time = g_time
         end
-        Prints("lets cast something 2", 2)
-        if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
-          local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0,
-            g_local.position)
-          if wHit.valid and wHit.hitchance >= 2 then
-            g_input:cast_spell(e_spell_slot.w, wHit.position)
-            features.orbwalker:set_cast_time(0.25)
+
+        if should_cast_w then
+          Prints("okay lets try hand w stasis", 2)
+
+          local time_to_cast_w = g_time + remaining_stasis_time - Data['W'].castTime
+          Prints("we want to cast at: " .. tostring(time_to_cast_w) .. "now it's: " .. tostring(g_time), 2)
+
+          if g_time >= time_to_cast_w and g_time <= time_to_cast_w + 0.25 then
+            Prints("casting w for stasis g_time:" .. tostring(g_time), 2)
+            local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
+            if wHit.valid and wHit.hitchance >= 2 then
+              g_input:cast_spell(e_spell_slot.w, wHit.position)
+              features.orbwalker:set_cast_time(0.25)
+              Last_cast_time = g_time
+              return true
+            end
           end
         end
       end
     end
   end
+end
+function On_cc_special_channel(index)
+	if g_local:is_recalling() then return false end
+	Prints("cc check", 3)
+	local enemy = features.entity_list:get_by_index(index)
+	if enemy then
+		local cai = enemy:get_ai_manager()
+		-- w_auto
+		-- w_auto_cc  w_auto_channel w_auto_special
+		if core.helper:is_alive(enemy) and not enemy:is_invisible() then
+			Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile or stasis", 3)
+
+			local should_cast_w = false
+			local should_cast_e = false
+
+			local is_immobile = false
+			local is_ccd = false
+			--local is_channeling = false
+
+			if features.buff_cache:is_immobile(enemy.index) then is_ccd = true end
+			if features.buff_cache:has_hard_cc(enemy.index) then is_immobile = true end
+			if Has_stasis(enemy) then return On_stasis_special_channel(index) end
+
+			if is_immobile or is_ccd then
+				Prints("is ccd or immobile looking to cast", 2)
+
+				if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+					should_cast_w = true
+				end
+				-- please dont laser under enemy tower lol
+				if (IsUnderTurret(g_local.position) and not features.orbwalker:get_mode() == Combo_key) then
+					should_cast_w = false
+				end
+
+				if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+					should_cast_e = true
+				end
+			end
+			if should_cast_e or should_cast_w then
+				Prints("lets cast something", 2)
+
+				if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+					local eHit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed,
+						Data['E'].Width, 0,
+						g_local.position)
+					if eHit.valid and eHit.hitchance >= 2 then
+						g_input:cast_spell(e_spell_slot.e, eHit.position)
+					end
+					features.orbwalker:set_cast_time(0.25)
+					Last_cast_time = g_time
+				end
+				Prints("lets cast something 2", 2)
+				if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+					local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed,
+						Data['W'].Width, 0,
+						g_local.position)
+					if wHit.valid and wHit.hitchance >= 2 then
+						g_input:cast_spell(e_spell_slot.w, wHit.position)
+						features.orbwalker:set_cast_time(0.25)
+						Last_cast_time = g_time
+					end
+				end
+			end
+		end
+	end
 end
 
 function KS(enemy)
-  Prints("ks in", 3)
-  local chance = 2
-  if g_input:is_key_pressed(17) then chance = 1 end
-  -- if w is ready and within data w range
-
-  if Data:can_cast('W') and Data:in_range('W', enemy) then
-    local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0,
-      g_local.position)
-    local wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
-    Prints("w ks chance: " .. tostring(wHit.hitchance) .. " wDmg is: " .. tostring(wdmg), 3)
-    if wdmg > enemy.health then
-      if wHit.valid and wHit.hitchance >= chance then
-        g_input:cast_spell(e_spell_slot.w, wHit.position)
-        features.orbwalker:set_cast_time(0.25)
-        Last_cast_time = g_time
-        return true
-      end
-    end
+	if g_local:is_recalling() then return false end
+	Prints("ks in", 3)
+	local chance = 2
+	if g_input:is_key_pressed(17) then chance = 1 end
+  
+	local delay = 0.25 -- you can adjust this delay to match the time it takes for spells to hit the target
+  
+	if Data:can_cast('W') and Data:in_range('W', enemy) then
+	  local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
+	  local wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
+	  local hpPred = features.prediction:predict_health(enemy, delay, true)
+	  Prints("w ks chance: " .. tostring(wHit.hitchance) .. " wDmg is: " .. tostring(wdmg), 3)
+	  if wdmg > hpPred and hpPred > 1 then
+		if wHit.valid and wHit.hitchance >= chance then
+		  g_input:cast_spell(e_spell_slot.w, wHit.position)
+		  features.orbwalker:set_cast_time(0.25)
+		  Last_cast_time = g_time
+		  return true
+		end
+	  end
+	end
+  
+	if Data:can_cast('R') and Data:in_range('R', enemy) then
+	  local rHit = features.prediction:predict(enemy.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
+	  local rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
+	  local hpPred = features.prediction:predict_health(enemy, delay, true)
+	  Prints("r ks chance: " .. tostring(rHit.hitchance) .. " rDmg is: " .. tostring(rdmg), 3)
+	  if rdmg > hpPred + 15 and hpPred > 1 then
+		if rHit.valid and rHit.hitchance >= chance then
+		  g_input:cast_spell(e_spell_slot.r, rHit.position)
+		  features.orbwalker:set_cast_time(0.25)
+		  Last_cast_time = g_time
+		  return true
+		end
+	  end
+	end
   end
-  -- if r is ready and within data r range
-  if Data:can_cast('R') and Data:in_range('R', enemy) then
-    local rHit = features.prediction:predict(enemy.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0,
-      g_local.position)
-    local rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
 
-    Prints("r ks chance: " .. tostring(rHit.hitchance) .. " rDmg is: " .. tostring(rdmg), 3)
-    if rdmg > enemy.health + 15 then
-      if rHit.valid and rHit.hitchance >= chance then
-        g_input:cast_spell(e_spell_slot.r, rHit.position)
-        features.orbwalker:set_cast_time(0.25)
-        Last_cast_time = g_time
-        return true
-      end
-    end
-  end
+function Get_q_travel_time(minion)
+  local missile_speed = 1700 -- Jinx's Q missile speed in rocket launcher form
+  local distance = g_local.position:dist_to(minion.position)
+  return distance / missile_speed
 end
+
 
 function OnTick()
   if g_time - Last_cast_time <= 0.05 then return end
+  if g_local:is_recalling() then return false end
   Prints("tick...", 3)
   for i, enemy in pairs(features.entity_list:get_enemies()) do
     if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
       --Prints("check dash", 2)
-      if not features.orbwalker:is_in_attack() and not features.evade:is_active() then
+      if not features.orbwalker:is_in_attack() and not features.evade:is_active() and not core.helper:is_invincible(enemy) then
         -- if is dashing
-        Prints("check dash is dashing", 2)
+		Prints("check ks", 3)
         KS(enemy)
+        Prints("check dash is dashing", 3)
         OnDash(enemy.index)
         if enemy:get_ai_manager().is_dashing then
         end
@@ -920,29 +980,62 @@ end
 
 function Refresh() Data:refresh_data() end
 
+---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
   {
     champion_name = "Jinx",
-    spell_q = function()
+    spell_q = function(data)
+      Prints("q spell in", 3)
+
       local mode = features.orbwalker:get_mode()
       local target = Get_target()
 
       if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('Q') then
+      end
+      -- Farming logic
+      local should_q_farm =  (mode == Clear_key and q_clear:get_value()) or (mode == Harass_key and q_clear:get_value())
+      if should_q_farm then
+        if not Data['AA'].rocket_launcher and features.orbwalker:can_attack() then
+            Prints("getting mins in long range", 3)
+
+            local minions_in_range = Get_minions(Data['AA'].long_range)
+            for _, minion in ipairs(minions_in_range) do
+                if g_local.position:dist_to(minion.position) > Data['AA'].short_range then
+                    local delay = Get_q_travel_time(minion) + 0.35
+                    local hpPred = features.prediction:predict_health(minion, delay, true)
+                    if hpPred ~= minion.health then
+                      local aa_dmg = core.damagelib:calc_aa_dmg(g_local, minion)
+                    
+                      if hpPred < aa_dmg * 1.1 and hpPred > 5 then
+                          Prints("Forcing target for q clear save", 2)
+                          g_input:cast_spell(e_spell_slot.q)
+                          Last_Q_swap_time = g_time
+                          return true
+                      end
+                    end
+                end
+            end
+        end
       end
 
       if mode == Combo_key and q_combo:get_value() then
         if q_combo_aoe:get_value() and target ~= nil and Data:count_enemies(250, target.position) >= q_combo_aoe_count:get_value() then
           if not Data['AA'].rocket_launcher then
             g_input:cast_spell(e_spell_slot.q)
+            Last_Q_swap_time = g_time
+            return true
           end
           -- we need more range...
         else
           if (not Data['AA'].rocket_launcher and Data['AA'].enemy_far and not Data['AA'].enemy_close) then
             g_input:cast_spell(e_spell_slot.q)
+            Last_Q_swap_time = g_time
           else
             if (Data['AA'].rocket_launcher and Data['AA'].enemy_far and Data['AA'].enemy_close) then
               -- we need more attack speed...
               g_input:cast_spell(e_spell_slot.q)
+              Last_Q_swap_time = g_time
+              return true
             end
           end
         end
@@ -953,10 +1046,24 @@ cheat.register_module(
         -- spellfarm check
         if Data['AA'].rocket_launcher and (target ~= nil or turrets[target] ~= nil) then
           g_input:cast_spell(e_spell_slot.q)
+          Last_Q_swap_time = g_time
+          return true
         end
       end
+      -- if q is still active and nothing else happend we should turn it off
+      local mode = features.orbwalker:get_mode()
+      
+      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key then
+        if g_time - Last_Q_swap_time > 0.5 then
+          Prints("exit rocket mode, bored", 2)
+          g_input:cast_spell(e_spell_slot.q)
+          Last_Q_swap_time = g_time
+          return false
+        end
+      end
+      return false
     end,
-    spell_w = function()
+    spell_w = function(data)
       local mode = features.orbwalker:get_mode()
       local target = Get_target()
 
@@ -967,14 +1074,15 @@ cheat.register_module(
         Prints("w spell in", 3)
         if (mode == Combo_key and w_combo:get_value()) or mode == Harass_key then
           if target == nil then return false end
+		  if g_local.position:dist_to(target.position) > Data['W'].Range then return false end
           local skip_cast = false
           local hit_chance_setting = w_combo_hitchance:get_value()
 
           local full_combo = g_input:is_key_pressed(17)
-          if full_combo then hit_chance_setting = 1 end
+          if full_combo then hit_chance_setting = 0 end
           local should_w_in_aa_range = w_combo_not_in_range:get_value()
           local aadmg = core.damagelib:calc_aa_dmg(g_local, target)
-          local aa_to_kill = math.ceil(target.health / aadmg)
+          local aa_to_kill = std_math.ceil(target.health / aadmg)
           local near_death = aa_to_kill <= 2
           local in_Q_range = Data['AA'].enemy_far
           local in_w_range = Data:in_range('W', target)
@@ -989,16 +1097,12 @@ cheat.register_module(
           if in_Q_range then
             if not can_weave or not should_w_in_aa_range or near_death then
               skip_cast = true
-              Prints(
-              "Skip W: " ..
-              tostring(skip_cast) ..
-              " can_weave: " ..
-              tostring(can_weave) ..
-              " should_w_in_aa_range: " .. tostring(should_w_in_aa_range) .. " near_death: " .. tostring(near_death), 3)
+              Prints("Skip W, target in AA range waiting to weave auto", 2)
             end
           end
-
+		  Prints("wHit valid:" ..tostring(wHit.valid) ..  " wSkip: " .. tostring(skip_cast) .. " hitRequire:  " .. tostring(hit_chance_setting) .. " chance: ".. tostring(wHit.hitchance) .. " minion block: " .. tostring(minion_block), 2)
           if wHit.valid and wHit.hitchance >= hit_chance_setting and not minion_block and not skip_cast then
+			Prints("W Cast", 2)
             g_input:cast_spell(e_spell_slot.w, wHit.position)
             return true
           end
@@ -1006,8 +1110,9 @@ cheat.register_module(
       else
         Prints("dont w in combo")
       end
+      return false
     end,
-    spell_e = function()
+    spell_e = function(data)
       local mode = features.orbwalker:get_mode()
       local target = Get_target()
 
@@ -1025,14 +1130,19 @@ cheat.register_module(
           end
         end
       end
+      return false
     end,
-    spell_r = function()
+    spell_r = function(data)
+      Prints("r spell in", 3)
       local mode = features.orbwalker:get_mode()
+   
+
       local target = Get_target()
       if target == nil then return false end
-      local dmg = 5 > math.ceil(target.health / core.damagelib:calc_aa_dmg(g_local, target))
+      local dmg = 5 > std_math.ceil(target.health / core.damagelib:calc_aa_dmg(g_local, target))
       if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('R') then
       end
+      
 
       if mode == Combo_key and r_combo:get_value() then
         if Data:in_range('R', target) and dmg and not Data['AA'].enemy_far then
@@ -1043,6 +1153,8 @@ cheat.register_module(
           end
         end
       end
+      Prints("r spell exit", 3)
+      return false
     end,
     get_priorities = function()
       return {
@@ -1055,10 +1167,13 @@ cheat.register_module(
   })
 
 
-Build_dash_list()
-
+---@diagnostic disable-next-line: undefined-field
 cheat.register_callback("render", Draw)
+---@diagnostic disable-next-line: undefined-field
 cheat.register_callback("feature", Refresh)
+---@diagnostic disable-next-line: undefined-field
 cheat.register_callback("feature", Splash_harass)
+---@diagnostic disable-next-line: undefined-field
 cheat.register_callback("feature", SemiAutoR)
+---@diagnostic disable-next-line: undefined-field
 cheat.register_callback("feature", OnTick)
