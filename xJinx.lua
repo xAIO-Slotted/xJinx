@@ -1,12 +1,10 @@
 -- xJinx by Jay and a bit of ampx.
 
-Jinx_VERSION = "1.0.5"
+Jinx_VERSION = "1.0.6"
 Jinx_LUA_NAME = "xJinx.lua"
 Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
-
-local core = require("xCore")
-core:init()
+REQUIRE_SLOTTED_RESTART = false
 
 local function fetch_remote_version_number()
     local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. Jinx_REPO_SCRIPT_PATH
@@ -43,6 +41,69 @@ local function replace_current_file_with_latest_version(latest_version_script)
     file:close()
 
     return true
+end
+
+local function file_exists(path)
+  local file = io.open(path, "r")
+  if file then
+      file:close()
+      return true
+  end
+  return false
+end
+
+local function download_file(url, path)
+  local command = "curl -s -L --create-dirs -o \"" .. path .. "\" " .. url
+  -- local command = "curl -s -o \"" .. path .. "\" " .. url
+  local handle = io.popen(command)
+  if not handle then
+      print("Failed to download the file.")
+      return
+  end
+  handle:close()
+end
+
+
+local function check_for_prereqs()
+  local resources_path = cheat:get_resource_path()
+  local fonts_path = resources_path:gsub("resources$", "fonts")
+  local corbel_path = fonts_path .. "/Corbel.ttf"
+  local roboto_path = fonts_path .. "/Roboto-Regular.ttf"
+
+  if not file_exists(corbel_path) then
+      print("Corbel.ttf not found. Downloading...")
+      REQUIRE_SLOTTED_RESTART = true
+      download_file("https://github.com/xAIO-Slotted/xCore/raw/main/Corbel.ttf", corbel_path)
+  else
+      print("Corbel.ttf found.")
+  end
+
+  if not file_exists(roboto_path) then
+      print("Roboto-Regular.ttf not found. Downloading...")
+      REQUIRE_SLOTTED_RESTART = true
+      download_file("https://github.com/xAIO-Slotted/xJinx/raw/main/Roboto-Regular.ttf", roboto_path)
+  else
+      print("Roboto-Regular.ttf found.")
+  end
+
+  local xcore_path = resources_path:gsub("resources$", "lua\\lib\\xCore.lua")
+  if not file_exists(xcore_path) then
+      print("xCore.lua not found. Downloading...")
+      download_file("https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/xCore.lua", xcore_path)
+  else
+      print("xCore.lua found.")
+  end
+  if REQUIRE_SLOTTED_RESTART then
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+  end
 end
 
 local function check_for_update()
@@ -151,25 +212,13 @@ local e_agc = agc_sect:checkbox("E on dash", g_config:add_bool(true, "E on dash"
 local Dash_list = {}
 local Dash_list_cfg = {}
 
-core.permashow:set_title(name)
-
--- Clear
-core.permashow:register("farm", "farm", "A", true, q_clear_cfg)
-core.permashow:register("Fast W", "Fast W", "control")
-core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")
-core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true, splash_harass_cfg)
-
-
-
-
 -- 0 = nothing
 -- 1 = default
 -- 2 = lots
 -- 3 = trace
 Debug_level = 1
 Res = g_render:get_screensize()
-Font = 'roboto-regular'
-colors = core.debug.Colors
+Font = nil
 White = color:new(255, 255, 255)
 Red = color:new(255, 0, 0)
 Green = color:new(0, 255, 0)
@@ -481,7 +530,7 @@ function Visualize_damage()
       local box_size = vec2:new(box_size_x, bar_height)
 
 
-      g_render:filled_box(box_start, box_size, colors.transparent.purple)
+      g_render:filled_box(box_start, box_size, Colors.transparent.purple)
       local pos = enemy.position
       if pos:to_screen() ~= nil then
         local aa_msg_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 50)
@@ -1051,9 +1100,6 @@ end
 
 function Refresh() Data:refresh_data() end
 
-
-check_for_update()
-
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
   {
@@ -1239,6 +1285,22 @@ cheat.register_module(
       }
     end
   })
+
+  
+check_for_prereqs()
+if REQUIRE_SLOTTED_RESTART then return end
+core = require("xCore")
+core:init()
+
+check_for_update()
+
+core.permashow:set_title(name)
+-- Clear
+core.permashow:register("farm", "farm", "A", true, q_clear_cfg)
+core.permashow:register("Fast W", "Fast W", "control")
+core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")
+core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true, splash_harass_cfg)
+Colors = core.debug.Colors
 
 cheat.register_callback("render", Draw)
 cheat.register_callback("feature", Refresh)
