@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.0.7"
+local Jinx_VERSION = "1.0.8"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -428,12 +428,12 @@ function Data:is_enemy_near(range, override)
 end
 
 
-function Data:get_enemies(range, position)
-  position = position or g_local.position
+function Data:get_enemies(range, pos)
+  pos = pos or g_local.position
   local enemies = {}
   
   for _, entity in pairs(features.entity_list:get_enemies()) do
-    if entity ~= nil and entity.position:dist_to(position) <= range and core.helper:is_alive(entity) then
+    if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
       table.insert(enemies, entity)
     end
   end
@@ -508,7 +508,9 @@ local function Get_target()
           local enemies = Data:get_enemies(2000)
           local sorted = get_sorted_w_targets(enemies)
           if sorted and #sorted > 0 then
-            target = sorted[1]
+            if sorted[1] and sorted[1].position then
+              target = sorted[1] 
+            end
           end
         end
       end
@@ -1263,6 +1265,8 @@ local function should_r_ks(sorted_targets, ks_r_hitchance)
     if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > ks_r_hitchance then
       local rHit = features.prediction:predict(target_info.target.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
       if rHit.valid and rHit.hitchance >= ks_r_hitchance then
+        Prints("KS: casting r hitchance is " .. chanceStrings[rHit.hitchance], 2)
+
         g_input:cast_spell(e_spell_slot.r, rHit.position)
         features.orbwalker:set_cast_time(0.25)
         Last_cast_time = g_time
@@ -1296,38 +1300,28 @@ cheat.register_module(
       local mode = features.orbwalker:get_mode()
 
       -- Combo logic
-      if mode == Combo_key and q_combo:get_value() and combo_harass_q() then
-        return true
-      end
+      if mode == Combo_key and q_combo:get_value() and combo_harass_q() then return true end
 
       -- Harass logic
-      if mode == Harass_key and q_harass:get_value() and combo_harass_q() then
-        return true
-      end
+      if mode == Harass_key and q_harass:get_value() and combo_harass_q() then return true end
 
       -- Farm logic -- extends auto range to hit dying minions if in minigun form
-      if (mode == Clear_key or mode == Harass_key or mode == Lasthit) and q_clear:get_value() and save_minion_with_q() then
-        return true
-      end
+      if (mode == Clear_key or mode == Harass_key or mode == Lasthit) and q_clear:get_value() and save_minion_with_q() then return true end
 
       -- Clear logic -- AoE minions
-      if (mode == Clear_key or mode == Harass_key) and q_clear_aoe:get_value() and fast_clear_aoe_Logic() then
-        return true
-      end
+      if (mode == Clear_key or mode == Harass_key) and q_clear_aoe:get_value() and fast_clear_aoe_Logic() then return true end
       
-      -- print all values of bored check:
-      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then
-        return true
-      end
+      -- Exit rocket logic
+      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then return true  end
 
       return false
     end,
     spell_w = function(data)
       local target = Get_target()
-      
       local mode = features.orbwalker:get_mode()
       -- no w in evade or no target or out of range
-      if features.evade:is_active() or not target or g_local.position:dist_to(target.position) > Data['W'].Range then
+
+      if features.evade:is_active() or target == nil or g_local.position:dist_to(target.position) > Data['W'].Range then
         return false
       end
     
@@ -1362,7 +1356,7 @@ cheat.register_module(
       local should_e_combo = (mode == Combo_key and e_combo:get_value())
       local should_e_harass = (mode == Harass_key and e_harass:get_value())
 
-      
+
       if (should_e_combo or should_e_harass)  and e_combo_logic() then
         return true
       end
