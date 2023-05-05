@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.0.8"
+local Jinx_VERSION = "1.0.9"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -187,9 +187,11 @@ local e_combo = combo_sect:checkbox("use E", g_config:add_bool(true, "e_combo"))
 local e_combo_mode = combo_sect:select("E Logic:", g_config:add_int(1, "e_combo_mode"),
   { "always", "advanced", "undodgable" })
 
-local r_combo = combo_sect:checkbox("use R", g_config:add_bool(true, "r_combo"))
-local r_combo_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
-  { "low", "medium", "high", "very_high", "immobile" })
+-- local r_combo = combo_sect:checkbox("use R", g_config:add_bool(true, "r_combo"))
+-- local r_combo_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
+--   { "low", "medium", "high", "very_high", "immobile" })
+
+
 
 -- Clear
 local q_clear_cfg = g_config:add_bool(true, "q_clear")
@@ -219,8 +221,11 @@ local extend_q_auto = auto_sect:checkbox("Autonomous auto Q  minion splash haras
 local w_auto = auto_sect:checkbox("auto W Stasis/cc/immobile", g_config:add_bool(true, "w_auto"))
 local e_auto = auto_sect:checkbox("auto E Stasis/cc/immobile", g_config:add_bool(true, "e_auto"))
 
-local w_kS = auto_sect:checkbox("auto W Stasis/cc/immobile", g_config:add_bool(true, "w_auto"))
-local r_KS = auto_sect:checkbox("auto R", g_config:add_bool(true, "r_auto"))
+local w_KS = auto_sect:checkbox("W KS", g_config:add_bool(true, "w_ks"))
+
+local r_KS = auto_sect:checkbox("R KS", g_config:add_bool(true, "r_ks"))
+local r_KS_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
+  { "low", "medium", "high", "very_high", "immobile" })
 local r_KS_dashless = auto_sect:checkbox("^ if no dash", g_config:add_bool(true, "r_auto_dashless"))
 
 -- AntiGapClose
@@ -525,85 +530,108 @@ local function Get_target()
   return target
 end
 
-local function Visualize_damage()
-  if g_time - Last_cast_time <= 0.15 then return end
-  Prints("draw dmg in", 3)
+local function RenderDamageBar(enemy, aadmg, wdmg, rdmg)
+  local screen = g_render:get_screensize()
+  local width_offset = 0.055
+  local height_offset = 0.010
+  local base_x_offset = 0.43
+  local base_y_offset_ratio = 0.002
+  local bar_width = (screen.x * width_offset)
+  local bar_height = (screen.y * height_offset)
+  local base_position = enemy:get_hpbar_position()
 
-  for i, enemy in pairs(features.entity_list:get_enemies()) do
-    if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
-      local approx = 0
-      local Killable = false
+  local base_y_offset = screen.y * base_y_offset_ratio
 
-      local aadmg = core.damagelib:calc_aa_dmg(g_local, enemy)
-      local AAtoKill = std_math.ceil(enemy.health / aadmg)
-      local insta = 0
-      local wdmg = 0
-      local rdmg = 0
-      local nmehp = enemy.health
-      
-      approx = 3 * aadmg
+  base_position.x = base_position.x - bar_width * base_x_offset
+  base_position.y = base_position.y - bar_height * base_y_offset
+
+  local function DrawDamageSection(color, damage, remaining_health)
+    local damage_mod = damage / enemy.max_health
+    local box_start_x = base_position.x + bar_width * remaining_health
+    local box_size_x = (bar_width * damage_mod) * -1
+    
+    -- Prevent the damage bar from going beyond the left bound of the enemy HP bar
+    if box_start_x + box_size_x < base_position.x then
+      box_size_x = base_position.x - box_start_x
+    end
+    
+    local box_start = vec2:new(box_start_x, base_position.y)
+    local box_size = vec2:new(box_size_x, bar_height)
+    g_render:filled_box(box_start, box_size, color)
+    return remaining_health - damage_mod
+  end
+
+  local remaining_health = enemy.health / enemy.max_health
+
+  remaining_health = DrawDamageSection(Colors.transparent.purple, aadmg, remaining_health)
+  remaining_health = DrawDamageSection(Colors.transparent.blue, wdmg, remaining_health)
+  remaining_health = DrawDamageSection(Colors.transparent.red, rdmg, remaining_health)
+end
+
+local function Visualize_damage(enemy)
+  local aadmg = core.damagelib:calc_aa_dmg(g_local, enemy)
+  local nmehp = enemy.health
+  local AAtoKill = std_math.ceil(nmehp / aadmg)
+  local wdmg = 0
+  local rdmg = 0
+
+  if Data:can_cast('W') then
+    wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
+  end
+  if Data:can_cast('R') then
+    rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
+  end
+
+  RenderDamageBar(enemy, aadmg, wdmg, rdmg)
+
+  local pos = enemy.position
+  if pos:to_screen() ~= nil then
+    local aa_msg_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 50)
+    -- g_render:text(aa_msg_pos, color:new(255, 255, 255), tostring(AAtoKill) .. " AA till kill", Font, 30)
+
+    local spells_text = ""
+    local killable_text = ""
+    local autos_to_kill = AAtoKill
+    if nmehp <= aadmg then
+      killable_text = "AA Kill"
+    elseif nmehp <= wdmg then
+      killable_text = "W Kill"
+    elseif nmehp <= rdmg + wdmg then
+      killable_text = "Combo Kill"
+      spells_text = "W + R"
+    else
       if Data:can_cast('W') then
-        wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
-        approx = approx + wdmg
+        autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
+        spells_text = "W"
       end
       if Data:can_cast('R') then
-        rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
-        approx = approx + rdmg
+        autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
+        spells_text = "R"
       end
-      if Data:can_cast('W') and Data:can_cast('R') and g_local.position:dist_to(enemy.position) < Data['W'].Range + 50 then
-        local quickCombo = aadmg + wdmg + rdmg
-        insta = aadmg + wdmg + rdmg
+      if Data:can_cast('W') and Data:can_cast('R') then
+        autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
+        spells_text = "W + R"
       end
-      if g_local.bonus_attack_speed + g_local.attack_speed > 1.5 then
-        approx = approx + aadmg
-      end
-
-      local screen = g_render:get_screensize()
-      local width_offset = 0.055
-      local height_offset = 0.010
-      local base_x_offset = 0.43
-      local base_y_offset_ratio = 0.002 -- New variable for y offset ratio
-      local bar_width = (screen.x * width_offset)
-      local bar_height = (screen.y * height_offset)
-      local base_position = enemy:get_hpbar_position()
-
-      -- Calculate the base_y_offset based on screen height
-      local base_y_offset = screen.y * base_y_offset_ratio
-
-      base_position.x = base_position.x - bar_width * base_x_offset
-      base_position.y = base_position.y - bar_height * base_y_offset
-
-      local modifier = enemy.health / enemy.max_health
-      local damage_mod = approx / enemy.max_health
-
-      local box_start = vec2:new(base_position.x + bar_width * modifier, base_position.y)
-      local box_size_x = 0
-      if damage_mod * bar_width > box_start.x - base_position.x then
-        box_size_x = base_position.x - box_start.x
-      else
-        box_size_x = (bar_width * damage_mod) * -1
-      end
-
-      local box_size = vec2:new(box_size_x, bar_height)
-
-
-      g_render:filled_box(box_start, box_size, Colors.transparent.purple)
-      local pos = enemy.position
-      if pos:to_screen() ~= nil then
-        local aa_msg_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 50)
-        g_render:text(aa_msg_pos, color:new(255, 255, 255), tostring(AAtoKill) .. " AA till kill", Font, 30)
-
-        if approx >= (enemy.health + 5) then
-          Killable = true
-          Square_color = color:new(255, 0, 200, 100)
-          g_render:circle_3d(pos, Square_color, 65, 1, 90, 2)
-          g_render:text(pos:to_screen(), color:new(255,255,255), "KILLABLE", Font, 30 )
-        end
-      end
+      killable_text = spells_text .. " + " .. tostring(autos_to_kill) .. " AA to kill"
+    end
+    if killable_text ~= "" then
+      local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
+      g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
+    end
+  end
+end
+local function Visualize_damages()
+  if g_time - Last_cast_time <= 0.15 then return end
+  Prints("draw dmg in", 3)
+  
+  for i, enemy in pairs(features.entity_list:get_enemies()) do
+    if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
+      Visualize_damage(enemy)
     end
   end
   Prints("tick exit", 3)
 end
+
 
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
@@ -710,7 +738,7 @@ local function Draw()
     show_splash_harass()
   end
   if checkboxVisualDmg:get_value() then
-    Visualize_damage()
+    Visualize_damages()
   end
   if checkboxDrawQ:get_value() or checkboxDrawW:get_value() then
     Prints("draw Q", 3)
@@ -1260,13 +1288,32 @@ local function get_semi_auto_r_target(sorted_targets)
     return nil
   end
 end
-local function should_r_ks(sorted_targets, ks_r_hitchance)
-  for _, target_info in ipairs(sorted_targets) do
-    if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > ks_r_hitchance then
-      local rHit = features.prediction:predict(target_info.target.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
-      if rHit.valid and rHit.hitchance >= ks_r_hitchance then
-        Prints("KS: casting r hitchance is " .. chanceStrings[rHit.hitchance], 2)
 
+local function w_ks_logic()
+  local enemies = Data:get_enemies(Data['W'].Range)
+      local sorted_targets = get_sorted_w_targets(enemies) -- adjust delay as needed
+      local ks_w_hitchance = 3
+      
+      for _, target_info in ipairs(sorted_targets) do
+        if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > ks_w_hitchance then
+          local wHit = features.prediction:predict(target_info.target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
+          if wHit.valid and wHit.hitchance >= ks_w_hitchance then
+            Prints("KS: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
+            g_input:cast_spell(e_spell_slot.w, wHit.position)
+            features.orbwalker:set_cast_time(0.25)
+            Last_cast_time = g_time
+            return true
+          end
+        end
+      end
+end
+
+local function should_r_ks(sorted_targets)
+  for _, target_info in ipairs(sorted_targets) do
+    if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > r_KS_hitchance:get_value() then
+      local rHit = features.prediction:predict(target_info.target.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
+      if rHit.valid and rHit.hitchance >= r_KS_hitchance:get_value() then
+        Prints("KS: casting r hitchance is " .. chanceStrings[rHit.hitchance], 2)
         g_input:cast_spell(e_spell_slot.r, rHit.position)
         features.orbwalker:set_cast_time(0.25)
         Last_cast_time = g_time
@@ -1290,6 +1337,7 @@ local function try_semi_auto_r(sorted_targets)
   end
   return false
 end
+
 
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
@@ -1327,27 +1375,14 @@ cheat.register_module(
     
       local should_w_combo = (mode == Combo_key and w_combo:get_value())
       local should_w_harass = (mode == Harass_key and w_harass:get_value())
+      local should_w_ks = (w_KS:get_value())
     
-      if (should_w_combo or should_w_harass) and w_combo_harass_logic() then 
-        return true
+      -- w Combo / harss logic
+      if (should_w_combo or should_w_harass) and w_combo_harass_logic() then  return true
       end
         --W KS logic
-      local enemies = Data:get_enemies(Data['W'].Range)
-      local sorted_targets = get_sorted_w_targets(enemies) -- adjust delay as needed
-      local ks_w_hitchance = 3
+      if should_w_ks and w_ks_logic() then return true end  
       
-      for _, target_info in ipairs(sorted_targets) do
-        if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > ks_w_hitchance then
-          local wHit = features.prediction:predict(target_info.target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
-          if wHit.valid and wHit.hitchance >= ks_w_hitchance then
-            Prints("KS: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
-            g_input:cast_spell(e_spell_slot.w, wHit.position)
-            features.orbwalker:set_cast_time(0.25)
-            Last_cast_time = g_time
-            return true
-          end
-        end
-      end
     
       return false
     end,
@@ -1368,9 +1403,13 @@ cheat.register_module(
       local enemies = Data:get_enemies(3000)
       local sorted_targets = get_sorted_r_targets(enemies)
       if #sorted_targets == 0 then return false end
-      local ks_r_hitchance = 3
       local should_SemiManualR = checkboxManR:get_value() and g_input:is_key_pressed(85)
-      if should_r_ks(sorted_targets, ks_r_hitchance) then return true end
+
+
+      -- r ks logic
+      if r_KS:get_value() and should_r_ks(sorted_targets) then return true end
+
+      -- semi auto r logic
       if should_SemiManualR and try_semi_auto_r(sorted_targets) then return true end
     
       return false
