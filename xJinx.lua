@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.0.9"
+local Jinx_VERSION = "1.1.0"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -19,235 +19,9 @@ local Flee = 5
 local Recalling = 6
 local Freeze = 7
 
-local chanceStrings = {
-  [0] = "low",
-  [1] = "medium",
-  [2] = "high",
-  [3] = "very_high",
-  [4] = "immobile"
-}
 
-local function fetch_remote_version_number()
-    local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. Jinx_REPO_SCRIPT_PATH
-    local handle = io.popen(command)
-    if not handle then
-      print("Failed to fetch the remote version number.")
-      return nil
-    end
-    local content = handle:read("*a")
-    handle:close()
-
-    if content == "" then
-        print("Failed to fetch the remote version number.")
-        return nil
-    end
-
-    local remote_version = content:match("VERSION%s*=%s*\"(%d+%.%d+%.%d+)\"")
-
-    return remote_version
-end
-
-local function replace_current_file_with_latest_version(latest_version_script)
-    local resources_path = cheat:get_resource_path()
-    local current_file_path = resources_path:gsub("resources$", "lua/" .. Jinx_LUA_NAME)
-
-    local file, errorMessage = io.open(current_file_path, "w")
-
-    if not file then
-        print("Failed to open the current file for writing. Error: ", errorMessage)
-        return false
-    end
-
-    file:write(latest_version_script)
-    file:close()
-
-    return true
-end
-
-local function file_exists(path)
-  local file = io.open(path, "r")
-  if file then
-      file:close()
-      return true
-  end
-  return false
-end
-
-local function download_file(url, path)
-  local command = "curl -s -L --create-dirs -o \"" .. path .. "\" " .. url
-  -- local command = "curl -s -o \"" .. path .. "\" " .. url
-  local handle = io.popen(command)
-  if not handle then
-      print("Failed to download the file.")
-      return
-  end
-  handle:close()
-end
-
-
-local function check_for_prereqs()
-  local resources_path = cheat:get_resource_path()
-  local fonts_path = resources_path:gsub("resources$", "fonts")
-  local corbel_path = fonts_path .. "/Corbel.ttf"
-  local roboto_path = fonts_path .. "/Roboto-Regular.ttf"
-
-  if not file_exists(corbel_path) then
-      print("Corbel.ttf not found. Downloading...")
-      REQUIRE_SLOTTED_RESTART = true
-      download_file("https://github.com/xAIO-Slotted/xCore/raw/main/Corbel.ttf", corbel_path)
-  else
-      print("Corbel.ttf found.")
-  end
-
-  if not file_exists(roboto_path) then
-      print("Roboto-Regular.ttf not found. Downloading...")
-      REQUIRE_SLOTTED_RESTART = true
-      download_file("https://github.com/xAIO-Slotted/xJinx/raw/main/Roboto-Regular.ttf", roboto_path)
-  else
-      print("Roboto-Regular.ttf found.")
-  end
-
-  local xcore_path = resources_path:gsub("resources$", "lua\\lib\\xCore.lua")
-  if not file_exists(xcore_path) then
-      print("xCore.lua not found. Downloading...")
-      download_file("https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/xCore.lua", xcore_path)
-  else
-      print("xCore.lua found.")
-  end
-  if REQUIRE_SLOTTED_RESTART then
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-      print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
-  end
-end
-
-local function check_for_update()
-  local remote_version = fetch_remote_version_number()
-  Prints("local version: " .. Jinx_VERSION .. " remote version: " .. remote_version, 0)
-  if remote_version and remote_version > Jinx_VERSION then
-      local command = "curl -s " .. Jinx_REPO_SCRIPT_PATH
-      local handle = io.popen(command)
-      if not handle then
-          Prints("Failed to fetch the remote script.", 0)
-          return
-      end
-      local latest_version_script = handle:read("*a")
-      handle:close()
-  
-  
-      if latest_version_script then
-          if replace_current_file_with_latest_version(latest_version_script) then
-            Prints("Please click reload lua ", 0)
-              Prints("Successfully updated " .. Jinx_LUA_NAME .. " to version " .. remote_version .. ".", 0)
-              Prints("Please click reload lua  ", 0)
-              -- You may need to restart the program to use the updated script
-          else
-              Prints("Failed to update " .. Jinx_LUA_NAME .. ".", 0)
-          end
-      end
-  else
-      Prints("You are running the latest version of " .. Jinx_LUA_NAME .. ".", 0)
-  end
-end
-
-local add_nav = menu.get_main_window():push_navigation(name, 10000)
-local navigation = menu.get_main_window():find_navigation(name)
-
--- Sections
-local combo_sect = navigation:add_section("combo")
-local harass_sect = navigation:add_section("harass")
-local clear_sect = navigation:add_section("farm")
-local agc_sect = navigation:add_section("gap close")
-local auto_sect = navigation:add_section("auto")
-local msc_sect = navigation:add_section("misc")
-local draw_sect = navigation:add_section("drawings")
-
--- Config
-local q_combo_aoe_count_cfg = g_config:add_int(3, "q_aoe_count")
-
-
--- Combo
-local q_combo = combo_sect:checkbox("use Q", g_config:add_bool(true, "q_combo"))
-local q_combo_aoe = combo_sect:checkbox("^ try AOE", g_config:add_bool(true, "q_combo_aoe"))
-local q_combo_aoe_count = combo_sect:slider_int("^ if x enemies", q_combo_aoe_count_cfg, 0, 5, 1)
-
-local w_combo = combo_sect:checkbox("use W", g_config:add_bool(true, "w_combo"))
-local w_combo_not_in_range = combo_sect:checkbox("^ if outside of aa range", g_config:add_bool(true, "w_combo_in_range"))
-local w_combo_hitchance = combo_sect:select("W hitchance", g_config:add_int(3, "w_combo_hitchance"),
-  { "low", "medium", "high", "very_high", "immobile" })
-
-
-local e_combo = combo_sect:checkbox("use E", g_config:add_bool(true, "e_combo"))
-local e_combo_mode = combo_sect:select("E Logic:", g_config:add_int(1, "e_combo_mode"),
-  { "always", "advanced", "undodgable" })
-
--- local r_combo = combo_sect:checkbox("use R", g_config:add_bool(true, "r_combo"))
--- local r_combo_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
---   { "low", "medium", "high", "very_high", "immobile" })
-
-
-
--- Clear
-local q_clear_cfg = g_config:add_bool(true, "q_clear")
-local q_clear_aoe_cgf = g_config:add_bool(true, "q_clear_aoe")
-
-local q_clear = clear_sect:checkbox("use Q (minion of range)", q_clear_cfg)
-local q_clear_aoe = clear_sect:checkbox("Q AOE (fast Lane Clear mode)", q_clear_aoe_cgf)
-local q_clear_aoe_count_cfg = g_config:add_int(3, "q_aoe_count")
-local q_clear_aoe_count = clear_sect:slider_int("^ if x enemies", q_clear_aoe_count_cfg, 0, 5, 1)
-
--- Harass
-local q_harass = harass_sect:checkbox("use Q", g_config:add_bool(true, "q_auto"))
-local splash_harass_cfg = g_config:add_bool(true, "splash_harass")
-local checkboxJinxSplashHarass = harass_sect:checkbox("extend aa range with Q splash", splash_harass_cfg)
-
-local w_harass = harass_sect:checkbox("use W", g_config:add_bool(true, "w_harass"))
-local w_harass_not_in_range = harass_sect:checkbox("^ if outside of aa range", g_config:add_bool(true, "w_combo_in_range"))
-local w_harass_hitchance = harass_sect:select("W hitchance", g_config:add_int(3, "w_combo_hitchance"),
-  { "low", "medium", "high", "very_high", "immobile" })
-
-local e_harass  = harass_sect:checkbox("use E", g_config:add_bool(true, "e_combo"))
-
--- Auto
-
-local extend_q_auto = auto_sect:checkbox("Autonomous auto Q  minion splash harass", g_config:add_bool(true, "auto q splash harass"))
-
-local w_auto = auto_sect:checkbox("auto W Stasis/cc/immobile", g_config:add_bool(true, "w_auto"))
-local e_auto = auto_sect:checkbox("auto E Stasis/cc/immobile", g_config:add_bool(true, "e_auto"))
-
-local w_KS = auto_sect:checkbox("W KS", g_config:add_bool(true, "w_ks"))
-
-local r_KS = auto_sect:checkbox("R KS", g_config:add_bool(true, "r_ks"))
-local r_KS_hitchance = combo_sect:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
-  { "low", "medium", "high", "very_high", "immobile" })
-local r_KS_dashless = auto_sect:checkbox("^ if no dash", g_config:add_bool(true, "r_auto_dashless"))
-
--- AntiGapClose
-local w_agc = agc_sect:checkbox("W on AntiGapClose", g_config:add_bool(true, "W on dash"))
-local e_agc = agc_sect:checkbox("E on AntiGapClose", g_config:add_bool(true, "E on dash"))
-
--- add a multi select
-local Dash_list = {}
-local Dash_list_cfg = {}
-
--- 0 = nothing
--- 1 = default
--- 2 = lots
--- 3 = trace
-Debug_level = 1
 Res = g_render:get_screensize()
 Font = 'roboto-regular'
-White = color:new(255, 255, 255)
-Red = color:new(255, 0, 0)
-Green = color:new(0, 255, 0)
-Blue = color:new(0, 0, 200)
-COLOR = White
 
 MinionInRange = {}
 MinionToHarass = {}
@@ -258,30 +32,235 @@ Last_Q_swap_time = g_time
 Last_cast_time = g_time
 Last_dbg_msg_time = g_time
 
+local chanceStrings = {
+  [0] = "low",
+  [1] = "medium",
+  [2] = "high",
+  [3] = "very_high",
+  [4] = "immobile"
+}
+
+local function add_jmenus()
+  local jmenu = {}
+  local navigation = menu.get_main_window():push_navigation(name, 10000)
+
+  -- Sections
+  local sections = {
+      combo = navigation:add_section("combo"),
+      harass = navigation:add_section("harass"),
+      clear = navigation:add_section("farm"),
+      agc = navigation:add_section("gap close"),
+      auto = navigation:add_section("auto"),
+      misc = navigation:add_section("misc"),
+      draw = navigation:add_section("drawings"),
+      visualizer = navigation:add_section("visualizer"),
+  }
+
+  -- Combo
+  jmenu.q_combo = sections.combo:checkbox("use Q", g_config:add_bool(true, "q_combo"))
+  jmenu.q_combo_aoe = sections.combo:checkbox("^ try AOE", g_config:add_bool(true, "q_combo_aoe"))
+  jmenu.q_combo_aoe_count = sections.combo:slider_int("^ if x enemies", g_config:add_int(3, "q_aoe_count"), 0, 5, 1)
+
+  jmenu.w_combo = sections.combo:checkbox("use W", g_config:add_bool(true, "w_combo"))
+  jmenu.w_combo_not_in_range = sections.combo:checkbox("^ if outside of aa range", g_config:add_bool(true, "w_combo_in_range"))
+  jmenu.w_combo_hitchance = sections.combo:select("W hitchance", g_config:add_int(3, "w_combo_hitchance"), { "low", "medium", "high", "very_high", "immobile" })
+
+  jmenu.e_combo = sections.combo:checkbox("use E", g_config:add_bool(true, "e_combo"))
+  jmenu.e_combo_mode = sections.combo:select("E Logic:", g_config:add_int(1, "e_combo_mode"), { "always", "advanced", "undodgable" })
+
+  -- Clear
+  jmenu.q_clear = sections.clear:checkbox("use Q (minion of range)", g_config:add_bool(true, "q_clear"))
+  jmenu.q_clear_aoe = sections.clear:checkbox("Q AOE (fast Lane Clear mode)", g_config:add_bool(true, "q_clear_aoe"))
+  jmenu.q_clear_aoe_count = sections.clear:slider_int("^ if x enemies", g_config:add_int(3, "q_aoe_count"), 0, 5, 1)
+
+  -- Harass
+  jmenu.q_harass = sections.harass:checkbox("use Q", g_config:add_bool(true, "q_auto"))
+  jmenu.checkboxJinxSplashHarass = sections.harass:checkbox("extend aa range with Q splash", g_config:add_bool(true, "splash_harass"))
+
+  jmenu.w_harass = sections.harass:checkbox("use W", g_config:add_bool(true, "w_harass"))
+  jmenu.w_harass_not_in_range = sections.harass:checkbox("^ if outside of aa range", g_config:add_bool(true, "w_combo_in_range"))
+  jmenu.w_harass_hitchance = sections.harass:select("W hitchance", g_config:add_int(3, "w_combo_hitchance"), { "low", "medium", "high", "very_high", "immobile" })
+
+  jmenu.e_harass = sections.harass:checkbox("use E", g_config:add_bool(true, "e_combo"))
+
+  -- Auto
+  jmenu.extend_q_auto = sections.auto:checkbox("Autonomous auto Q  minion splash harass",g_config:add_bool(true, "auto q splash harass"))
+
+  jmenu.w_auto = sections.auto:checkbox("auto W Stasis/cc/immobile", g_config:add_bool(true, "w_auto"))
+  jmenu.e_auto = sections.auto:checkbox("auto E Stasis/cc/immobile", g_config:add_bool(true, "e_auto"))
+
+  jmenu.w_KS = sections.auto:checkbox("W KS", g_config:add_bool(true, "w_ks"))
+
+  jmenu.r_KS = sections.auto:checkbox("R KS", g_config:add_bool(true, "r_ks"))
+  jmenu.r_KS_hitchance = sections.combo:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"), { "low", "medium", "high", "very_high", "immobile" })
+  jmenu.r_KS_dashless = sections.auto:checkbox("^ if no dash", g_config:add_bool(true, "r_auto_dashless"))
+
+
+  -- AntiGapClose
+  jmenu.w_agc = sections.agc:checkbox("W on AntiGapClose", g_config:add_bool(true, "W on dash"))
+  jmenu.e_agc = sections.agc:checkbox("E on AntiGapClose", g_config:add_bool(true, "E on dash"))
+
+  -- Dash blacklist
+  jmenu.Dash_list = {}
+  jmenu.Dash_list_cfg = {}
+  jmenu.dash_blacklist = sections.auto:multi_select("^ dash blacklist", jmenu.Dash_list, jmenu.Dash_list_cfg)
+
+  -- Misc
+  jmenu.checkboxManR = sections.misc:checkbox("Manual Ult on U", g_config:add_bool(true, "Semi Auto Cast R"))
+
+  -- Draw
+  jmenu.checkboxVisualDmg = sections.draw:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
+  jmenu.checkboxDrawQ = sections.draw:checkbox("Draw alternate Q range", g_config:add_bool(true, "Draw alternate Q range"))
+  jmenu.checkboxDrawW = sections.draw:checkbox("Draw W off cooldown", g_config:add_bool(true, "Draw W off cooldown"))
+
+      -- Visualizer
+-- combined bars
+  jmenu.visualizer_show_combined_bars = sections.visualizer:checkbox("Show combined bars", g_config:add_bool(true, "show_combined_bars"))
+  jmenu.visualizer_split_colors = sections.visualizer:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
+
+  jmenu.visualizer_show_stacked_bars = sections.visualizer:checkbox("Show stacked bars", g_config:add_bool(true, "show_stacked_bars"))
+  jmenu.visualizer_visualize_autos = sections.visualizer:checkbox("Visualize Autos", g_config:add_bool(true, "visualize_autos"))
+  jmenu.visualizer_autos_slider = sections.visualizer:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
+  jmenu.visualizer_visualize_w = sections.visualizer:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
+  jmenu.visualizer_visualize_r = sections.visualizer:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
+  jmenu.visualizer_show_text = sections.visualizer:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
+
+  return jmenu
+end
+local jmenu = add_jmenus()
+
+
 function Prints(str, level)
   core.debug:Print(str, level)
 end
 
-local dash_blacklist = auto_sect:multi_select("^ dash blacklist", Dash_list, Dash_list_cfg)
 
--- misc
-local checkboxManR = msc_sect:checkbox("Manual Ult on U", g_config:add_bool(true, "Semi Auto Cast R"))
+local function fetch_remote_version_number()
+  local command = "curl -s -H 'Cache-Control: no-cache, no-store, must-revalidate' " .. Jinx_REPO_SCRIPT_PATH
+  local handle = io.popen(command)
+  if not handle then
+    print("Failed to fetch the remote version number.")
+    return nil
+  end
+  local content = handle:read("*a")
+  handle:close()
 
--- Lasthit
+  if content == "" then
+      print("Failed to fetch the remote version number.")
+      return nil
+  end
 
--- Mana
+  local remote_version = content:match("VERSION%s*=%s*\"(%d+%.%d+%.%d+)\"")
 
--- AntiGapClose
+  return remote_version
+end
 
--- Flee
+local function replace_current_file_with_latest_version(latest_version_script)
+  local resources_path = cheat:get_resource_path()
+  local current_file_path = resources_path:gsub("resources$", "lua/" .. Jinx_LUA_NAME)
 
--- Permashow
+  local file, errorMessage = io.open(current_file_path, "w")
 
--- Draw
--- local checkboxDBG = draw_sect:checkbox("debug messages", g_config:add_bool(true, "debug messages"))
-local checkboxVisualDmg = draw_sect:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
-local checkboxDrawQ = draw_sect:checkbox("Draw alternate Q range", g_config:add_bool(true, "Draw alternate Q range"))
-local checkboxDrawW = draw_sect:checkbox("Draw W off cooldown", g_config:add_bool(true, "Draw W off cooldown"))
+  if not file then
+      print("Failed to open the current file for writing. Error: ", errorMessage)
+      return false
+  end
+
+  file:write(latest_version_script)
+  file:close()
+
+  return true
+end
+
+local function file_exists(path)
+  local file = io.open(path, "r")
+  if file then
+    file:close()
+    return true
+  end
+  return false
+end
+
+local function download_file(url, path)
+  local command = "curl -s -L --create-dirs -o \"" .. path .. "\" " .. url
+  -- local command = "curl -s -o \"" .. path .. "\" " .. url
+  local handle = io.popen(command)
+  if not handle then
+    print("Failed to download the file.")
+    return
+  end
+  handle:close()
+end
+
+local function check_for_prereqs()
+  local resources_path = cheat:get_resource_path()
+  local fonts_path = resources_path:gsub("resources$", "fonts")
+  local corbel_path = fonts_path .. "/Corbel.ttf"
+  local roboto_path = fonts_path .. "/Roboto-Regular.ttf"
+
+  if not file_exists(corbel_path) then
+    print("Corbel.ttf not found. Downloading...")
+    REQUIRE_SLOTTED_RESTART = true
+    download_file("https://github.com/xAIO-Slotted/xCore/raw/main/Corbel.ttf", corbel_path)
+  else
+    print("Corbel.ttf found.")
+  end
+
+  if not file_exists(roboto_path) then
+    print("Roboto-Regular.ttf not found. Downloading...")
+    REQUIRE_SLOTTED_RESTART = true
+    download_file("https://github.com/xAIO-Slotted/xJinx/raw/main/Roboto-Regular.ttf", roboto_path)
+  else
+    print("Roboto-Regular.ttf found.")
+  end
+
+  local xcore_path = resources_path:gsub("resources$", "lua\\lib\\xCore.lua")
+  if not file_exists(xcore_path) then
+    print("xCore.lua not found. Downloading...")
+    download_file("https://raw.githubusercontent.com/xAIO-Slotted/xCore/main/xCore.lua", xcore_path)
+  else
+    print("xCore.lua found.")
+  end
+  if REQUIRE_SLOTTED_RESTART then
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+    print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
+  end
+end
+local function check_for_update()
+  local remote_version = fetch_remote_version_number()
+  Prints("local version: " .. Jinx_VERSION .. " remote version: " .. remote_version, 0)
+  if remote_version and remote_version > Jinx_VERSION then
+    local command = "curl -s " .. Jinx_REPO_SCRIPT_PATH
+    local handle = io.popen(command)
+    if not handle then
+      Prints("Failed to fetch the remote script.", 0)
+      return
+    end
+    local latest_version_script = handle:read("*a")
+    handle:close()
+
+
+    if latest_version_script then
+      if replace_current_file_with_latest_version(latest_version_script) then
+        Prints("Please click reload lua ", 0)
+        Prints("Successfully updated " .. Jinx_LUA_NAME .. " to version " .. remote_version .. ".", 0)
+        Prints("Please click reload lua  ", 0)
+        -- You may need to restart the program to use the updated script
+      else
+        Prints("Failed to update " .. Jinx_LUA_NAME .. ".", 0)
+      end
+    end
+  else
+    Prints("You are running the latest version of " .. Jinx_LUA_NAME .. ".", 0)
+  end
+end
 
 local Data = {
   Q = {
@@ -530,20 +509,19 @@ local function Get_target()
   return target
 end
 
-local function RenderDamageBar(enemy, aadmg, wdmg, rdmg)
+local function RenderDamageBar(enemy, combodmg, aadmg, wdmg, rdmg, bar_height, yOffset)
+  yOffset = yOffset or 0
   local screen = g_render:get_screensize()
   local width_offset = 0.055
-  local height_offset = 0.010
   local base_x_offset = 0.43
   local base_y_offset_ratio = 0.002
   local bar_width = (screen.x * width_offset)
-  local bar_height = (screen.y * height_offset)
   local base_position = enemy:get_hpbar_position()
 
   local base_y_offset = screen.y * base_y_offset_ratio
 
   base_position.x = base_position.x - bar_width * base_x_offset
-  base_position.y = base_position.y - bar_height * base_y_offset
+  base_position.y = base_position.y - bar_height * base_y_offset + yOffset
 
   local function DrawDamageSection(color, damage, remaining_health)
     local damage_mod = damage / enemy.max_health
@@ -562,64 +540,136 @@ local function RenderDamageBar(enemy, aadmg, wdmg, rdmg)
   end
 
   local remaining_health = enemy.health / enemy.max_health
+  if combodmg > 0 then
+    remaining_health = DrawDamageSection(Colors.transparent.purple, combodmg, remaining_health)
+  end
+  if aadmg > 0 then
+    remaining_health = DrawDamageSection(Colors.transparent.green, aadmg, remaining_health)
+  end
+  if wdmg > 0 then
+    remaining_health = DrawDamageSection(Colors.transparent.blue, wdmg, remaining_health)
+  end
+  if rdmg > 0 then
+    remaining_health = DrawDamageSection(Colors.transparent.red, rdmg, remaining_health)
+  end
 
-  remaining_health = DrawDamageSection(Colors.transparent.purple, aadmg, remaining_health)
-  remaining_health = DrawDamageSection(Colors.transparent.blue, wdmg, remaining_health)
-  remaining_health = DrawDamageSection(Colors.transparent.red, rdmg, remaining_health)
+end
+local function RenderStackedBars(enemy, aadmg, wdmg, rdmg)
+  local screen = g_render:get_screensize()
+  local height_offset = 0.010
+  local bar_height = (screen.y * height_offset)
+  
+  
+  local combined_aadmg = aadmg
+  if jmenu.visualizer_visualize_autos:get_value() then
+    RenderDamageBar(enemy, 0, aadmg, 0, 0, bar_height, 0)
+  end
+
+  if jmenu.visualizer_visualize_w:get_value() then
+    RenderDamageBar(enemy, 0,0, wdmg, 0, bar_height, -15)
+    combined_aadmg = combined_aadmg + wdmg
+  end
+
+  if jmenu.visualizer_visualize_r:get_value() then
+    RenderDamageBar(enemy, 0,0, 0, rdmg, bar_height, 15)
+    combined_aadmg = combined_aadmg + rdmg
+  end
+
+  -- Render the combined damage purple bar
+  --RenderDamageBar(enemy, combined_aadmg, 0,0, 0, bar_height, 0)
 end
 
-local function Visualize_damage(enemy)
-  local aadmg = core.damagelib:calc_aa_dmg(g_local, enemy)
-  local nmehp = enemy.health
-  local AAtoKill = std_math.ceil(nmehp / aadmg)
+local function RenderCombinedBars(enemy, combodmg, aadmg, wdmg, rdmg)
+  local screen = g_render:get_screensize()
+  local height_offset = 0.010
+  local bar_height = (screen.y * height_offset)
+
+  if jmenu.visualizer_split_colors:get_value() then
+    RenderDamageBar(enemy, 0, aadmg, wdmg, rdmg, bar_height, 0)
+  else
+    RenderDamageBar(enemy, combodmg, 0, 0, 0, bar_height, 0)
+  end
+  
+end
+
+local function DisplayKillableText(enemy, nmehp, aadmg, wdmg, rdmg)
+  local pos = enemy.position
+  if pos:to_screen() ~= nil then
+      local spells_text = ""
+      local killable_text = ""
+
+      local autos_to_kill = std_math.ceil(nmehp / aadmg)
+      if nmehp <= aadmg then
+          killable_text = "AA Kill"
+      elseif nmehp <= wdmg then
+          killable_text = "W Kill"
+      elseif nmehp <= rdmg + wdmg then
+          killable_text = "Combo Kill"
+          if jmenu.visualizer_visualize_w:get_value() then
+              spells_text = "W"
+          end
+          if jmenu.visualizer_visualize_r:get_value() then
+              spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "R"
+          end
+      else
+          if Data:can_cast('W') and jmenu.visualizer_visualize_w:get_value() then
+              autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
+              spells_text = "W"
+          end
+          if Data:can_cast('R') and jmenu.visualizer_visualize_r:get_value() then
+              autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
+              spells_text = (spells_text ~= "" and " + " or "") .. "R"
+          end
+          if Data:can_cast('W') and Data:can_cast('R') and jmenu.visualizer_visualize_w:get_value() and jmenu.visualizer_visualize_r:get_value() then
+              autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
+              spells_text = "W + R"
+          end
+          killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
+      end
+      if killable_text ~= "" then
+          local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
+          g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
+      end
+  end
+end
+
+local function get_damage_array(enemy) 
+  local base_auto_dmg = core.damagelib:calc_aa_dmg(g_local, enemy)
+  local aadmg = 0
   local wdmg = 0
   local rdmg = 0
-
+  local aadmg = base_auto_dmg * jmenu.visualizer_autos_slider:get_value()
+  -- if is
   if Data:can_cast('W') then
     wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
   end
   if Data:can_cast('R') then
     rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
   end
+  return aadmg, wdmg, rdmg
+end
 
-  RenderDamageBar(enemy, aadmg, wdmg, rdmg)
+local function Visualize_damage(enemy)
+  local nmehp = enemy.health
 
-  local pos = enemy.position
-  if pos:to_screen() ~= nil then
-    local aa_msg_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 50)
-    -- g_render:text(aa_msg_pos, color:new(255, 255, 255), tostring(AAtoKill) .. " AA till kill", Font, 30)
+  local aadmg, wdmg, rdmg = get_damage_array(enemy)
 
-    local spells_text = ""
-    local killable_text = ""
-    local autos_to_kill = AAtoKill
-    if nmehp <= aadmg then
-      killable_text = "AA Kill"
-    elseif nmehp <= wdmg then
-      killable_text = "W Kill"
-    elseif nmehp <= rdmg + wdmg then
-      killable_text = "Combo Kill"
-      spells_text = "W + R"
-    else
-      if Data:can_cast('W') then
-        autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
-        spells_text = "W"
-      end
-      if Data:can_cast('R') then
-        autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
-        spells_text = "R"
-      end
-      if Data:can_cast('W') and Data:can_cast('R') then
-        autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
-        spells_text = "W + R"
-      end
-      killable_text = spells_text .. " + " .. tostring(autos_to_kill) .. " AA to kill"
-    end
-    if killable_text ~= "" then
-      local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
-      g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
-    end
+  local combodmg = wdmg + rdmg + aadmg
+
+  -- combined bars
+  if jmenu.visualizer_show_combined_bars:get_value() then
+    RenderCombinedBars(enemy, combodmg, aadmg, wdmg, rdmg)
+  end
+  -- stacked bars
+  if jmenu.visualizer_show_stacked_bars:get_value() then
+    RenderStackedBars(enemy, aadmg, wdmg, rdmg)
+  end
+  -- killable text
+  if jmenu.visualizer_show_text:get_value() then
+    DisplayKillableText(enemy, nmehp, core.damagelib:calc_aa_dmg(g_local, enemy), wdmg, rdmg)
   end
 end
+
 local function Visualize_damages()
   if g_time - Last_cast_time <= 0.15 then return end
   Prints("draw dmg in", 3)
@@ -632,18 +682,17 @@ local function Visualize_damages()
   Prints("tick exit", 3)
 end
 
-
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
-  if checkboxDrawQ:get_value() then
+  if jmenu.checkboxDrawQ:get_value() then
     if Data['AA'].rocket_launcher then
-      g_render:circle_3d(g_local.position, Blue, Data['AA'].short_range, 2, 50, 1)
+      g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].short_range, 2, 50, 1)
     else
-      g_render:circle_3d(g_local.position, Blue, Data['AA'].long_range, 2, 50, 1)
+      g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].long_range, 2, 50, 1)
     end
   end
-  if checkboxDrawW:get_value() and Data:can_cast('W') then
-    g_render:circle_3d(g_local.position, Blue, Data['W'].Range, 2, 50, 1)
+  if jmenu.checkboxDrawW:get_value() and Data:can_cast('W') then
+    g_render:circle_3d(g_local.position, Colors.solid.blue, Data['W'].Range, 2, 50, 1)
   end
 end
 
@@ -709,7 +758,7 @@ local function show_splash_harass()
     if tgt then
       get_harass_minions_near(SplashabletargetIndex, 235)
       -- circle the target
-      g_render:circle_3d(tgt.position, Red, 235, 2, 90, 2)
+      g_render:circle_3d(tgt.position, Colors.solid.Colors.solid.red, 235, 2, 90, 2)
       if MinionTable and #MinionTable > 0 then
         --Prints("splash?", 2)
         for ii, alive in ipairs(MinionTable) do
@@ -717,7 +766,7 @@ local function show_splash_harass()
           if min then
             local hmm = min.position:extend(tgt.position, tgt.position:dist_to(min.position))
             -- print distance from tgt to min
-            if tgt ~= nil and min ~= nil and tgt.position:dist_to(min.position) < 260 then g_render:line_3d(min.position, tgt.position, Red, 1) end
+            if tgt ~= nil and min ~= nil and tgt.position:dist_to(min.position) < 260 then g_render:line_3d(min.position, tgt.position, Colors.solid.red, 1) end
           end
         end
       end
@@ -725,7 +774,7 @@ local function show_splash_harass()
   end
   if SplashableMinionIndex then
     local min = features.entity_list:get_by_index(SplashableMinionIndex)
-    if min then g_render:circle_3d(min.position, Green, 80, 2, 90, 2) end
+    if min then g_render:circle_3d(min.position, Colors.solid.green, 80, 2, 90, 2) end
   else
     Prints("no splashable minion to draw lines too ", 3)
   end
@@ -733,14 +782,14 @@ end
 
 local function Draw()
   Prints("Draws", 3)
-  if checkboxJinxSplashHarass:get_value() then
+  if jmenu.checkboxJinxSplashHarass:get_value() then
     Prints("draw harass", 3)
     show_splash_harass()
   end
-  if checkboxVisualDmg:get_value() then
+  if jmenu.checkboxVisualDmg:get_value() then
     Visualize_damages()
   end
-  if checkboxDrawQ:get_value() or checkboxDrawW:get_value() then
+  if jmenu.checkboxDrawQ:get_value() or jmenu.checkboxDrawW:get_value() then
     Prints("draw Q", 3)
     Visualize_spell_range()
   end
@@ -817,7 +866,7 @@ end
 
 local function Splash_harass()
   if g_local:is_recalling() then return false end
-  if checkboxJinxSplashHarass:get_value() == false then return false end
+  if jmenu.checkboxJinxSplashHarass:get_value() == false then return false end
   if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('Q') then return false end
   local target = Get_target()
   if target == nil then return false end
@@ -835,7 +884,7 @@ local function Splash_harass()
         Prints("splash minion found", 1)
         local min_obj = features.entity_list:get_by_index(SplashableMinionIndex)
         if min_obj then
-          if features.orbwalker:get_mode() == Harass_key or extend_q_auto:get_value() then
+          if features.orbwalker:get_mode() == Harass_key or jmenu.extend_q_auto:get_value() then
             local min_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range, 1500, 0,
               g_local.attack_speed, g_local.position)
             local nme_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range, 1500, 0,
@@ -912,7 +961,7 @@ local function OnDash(index)
   local spell_book = tgt:get_spell_book()
   local cast_info = spell_book:get_spell_cast_info()
 
-  if (e_agc:get_value() or e_agc:get_value()) then
+  if (jmenu.e_agc:get_value() or jmenu.e_agc:get_value()) then
 -- 	local has_dash = core.database:has_dash(tgt) 
 
 --     if cast_info ~= nil and has_dash then
@@ -942,7 +991,7 @@ local function OnDash(index)
   end
 
 
-  if (e_agc:get_value() or e_agc:get_value()) and cai.is_dashing then
+  if (jmenu.e_agc:get_value() or jmenu.e_agc:get_value()) and cai.is_dashing then
     Prints("checking for dashes", 2)
     if g_local.position:dist_to(cai.path_end) > Data['W'].Range then
       Prints("is dashing out of range of w :(", 2)
@@ -953,7 +1002,7 @@ local function OnDash(index)
     Prints("Time Remaining: " .. tostring(time_remaining), 2)
     local trapped = false
 
-    if e_agc:get_value() and time_remaining > (Data['E'].castTime - 0.5) and g_local.position:dist_to(cai.path_end) < Data['E'].Range and Data:can_cast('E') then
+    if  jmenu.e_agc:get_value() and time_remaining > (Data['E'].castTime - 0.5) and g_local.position:dist_to(cai.path_end) < Data['E'].Range and Data:can_cast('E') then
       g_input:cast_spell(e_spell_slot.e, cai.path_end)
       features.orbwalker:set_cast_time(0.25)
       Last_cast_time = g_time
@@ -963,7 +1012,7 @@ local function OnDash(index)
     -- dont w under tower unless already in combo mode
     if (IsUnderTurret(g_local.position) and not features.orbwalker:get_mode() == Combo_key) then return false end
 
-    if w_agc:get_value() and time_remaining > (Data['W'].castTime - 0.5) and Data:can_cast('W') then
+    if  jmenu.w_agc:get_value() and time_remaining > (Data['W'].castTime - 0.5) and Data:can_cast('W') then
       local minion_block = features.prediction:minion_in_line(g_local.position, cai.path_end, 120)
       if not minion_block and g_local.position:dist_to(cai.path_end) > 300 then
         g_input:cast_spell(e_spell_slot.w, cai.path_end)
@@ -1000,11 +1049,11 @@ local function On_stasis_special_channel(index)
       local should_cast_w = false
       local should_cast_e = false
 
-      if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+      if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
         should_cast_w = true
       end
 
-      if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+      if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
         should_cast_e = true
       end
       if should_cast_e == false and should_cast_w == false then return end
@@ -1073,7 +1122,7 @@ local function On_cc_special_channel(index)
 			if is_immobile or is_ccd then
 				Prints("is ccd or immobile looking to cast", 2)
 
-				if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+				if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
 					should_cast_w = true
 				end
 				-- please dont laser under enemy tower lol
@@ -1081,14 +1130,14 @@ local function On_cc_special_channel(index)
 					should_cast_w = false
 				end
 
-				if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+				if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
 					should_cast_e = true
 				end
 			end
 			if should_cast_e or should_cast_w then
 				Prints("lets cast something", 2)
 
-				if e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+				if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
 					local eHit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed,
 						Data['E'].Width, 0,
 						g_local.position)
@@ -1099,7 +1148,7 @@ local function On_cc_special_channel(index)
 					Last_cast_time = g_time
 				end
 				Prints("lets cast something 2", 2)
-				if w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+				if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
 					local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed,
 						Data['W'].Width, 0,
 						g_local.position)
@@ -1145,7 +1194,7 @@ end
 
 local function exit_rocket_logic()
   local mode = features.orbwalker:get_mode()
-  if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and q_clear:get_value() then
+  if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and jmenu.q_clear:get_value() then
     if mode  == Harass_key and Data['AA'].enemy_far then 
       return false
     end
@@ -1183,7 +1232,7 @@ local function save_minion_with_q()
 end
 local function combo_harass_q()
   local target = Get_target()
-  if q_combo_aoe:get_value() and target ~= nil and Data:count_enemies(250, target.position) >= q_combo_aoe_count:get_value() then
+  if jmenu.q_combo_aoe:get_value() and target ~= nil and Data:count_enemies(250, target.position) >= jmenu.q_combo_aoe_count:get_value() then
     if not Data['AA'].rocket_launcher then
       g_input:cast_spell(e_spell_slot.q)
       Last_Q_swap_time = g_time
@@ -1214,8 +1263,8 @@ local function should_skip_w_cast()
 
   local mode = features.orbwalker:get_mode()
   local full_combo = g_input:is_key_pressed(17)
-  local should_w_in_aa_range = w_combo_not_in_range:get_value() 
-  if mode == Harass_key then should_w_in_aa_range = w_harass_not_in_range:get_value() end
+  local should_w_in_aa_range = jmenu.w_combo_not_in_range:get_value() 
+  if mode == Harass_key then should_w_in_aa_range = jmenu.w_harass_not_in_range:get_value() end
   local aadmg = core.damagelib:calc_aa_dmg(g_local, target)
   local aa_to_kill = std_math.ceil(target.health / aadmg)
   local near_death = aa_to_kill <= 2
@@ -1234,10 +1283,10 @@ end
 
 local function get_w_hitchance_setting()
   local mode = features.orbwalker:get_mode()
-  local chance = w_combo_hitchance:get_value()
+  local chance = jmenu.w_combo_hitchance:get_value()
   -- if we're in harass mode, use the harass hitchance setting
   if mode == Harass_key then 
-    chance = w_harass_hitchance:get_value()
+    chance = jmenu.w_harass_hitchance:get_value()
   -- if we're in combo mode and we're holding control key, force w to go off
   elseif g_input:is_key_pressed(17) then 
     chance = 0 
@@ -1310,9 +1359,9 @@ end
 
 local function should_r_ks(sorted_targets)
   for _, target_info in ipairs(sorted_targets) do
-    if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > r_KS_hitchance:get_value() then
+    if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > jmenu.r_KS_hitchance:get_value() then
       local rHit = features.prediction:predict(target_info.target.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
-      if rHit.valid and rHit.hitchance >= r_KS_hitchance:get_value() then
+      if rHit.valid and rHit.hitchance >= jmenu.r_KS_hitchance:get_value() then
         Prints("KS: casting r hitchance is " .. chanceStrings[rHit.hitchance], 2)
         g_input:cast_spell(e_spell_slot.r, rHit.position)
         features.orbwalker:set_cast_time(0.25)
@@ -1348,19 +1397,19 @@ cheat.register_module(
       local mode = features.orbwalker:get_mode()
 
       -- Combo logic
-      if mode == Combo_key and q_combo:get_value() and combo_harass_q() then return true end
+      if mode == Combo_key and jmenu.q_combo:get_value() and combo_harass_q() then return true end
 
       -- Harass logic
-      if mode == Harass_key and q_harass:get_value() and combo_harass_q() then return true end
+      if mode == Harass_key and jmenu.q_harass:get_value() and combo_harass_q() then return true end
 
       -- Farm logic -- extends auto range to hit dying minions if in minigun form
-      if (mode == Clear_key or mode == Harass_key or mode == Lasthit) and q_clear:get_value() and save_minion_with_q() then return true end
+      if (mode == Clear_key or mode == Harass_key or mode == Lasthit) and jmenu.q_clear:get_value() and save_minion_with_q() then return true end
 
       -- Clear logic -- AoE minions
-      if (mode == Clear_key or mode == Harass_key) and q_clear_aoe:get_value() and fast_clear_aoe_Logic() then return true end
+      if (mode == Clear_key or mode == Harass_key) and jmenu.q_clear_aoe:get_value() and fast_clear_aoe_Logic() then return true end
       
       -- Exit rocket logic
-      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then return true  end
+      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and jmenu.q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then return true  end
 
       return false
     end,
@@ -1373,9 +1422,9 @@ cheat.register_module(
         return false
       end
     
-      local should_w_combo = (mode == Combo_key and w_combo:get_value())
-      local should_w_harass = (mode == Harass_key and w_harass:get_value())
-      local should_w_ks = (w_KS:get_value())
+      local should_w_combo = (mode == Combo_key and jmenu.w_combo:get_value())
+      local should_w_harass = (mode == Harass_key and jmenu.w_harass:get_value())
+      local should_w_ks = (jmenu.w_KS:get_value())
     
       -- w Combo / harss logic
       if (should_w_combo or should_w_harass) and w_combo_harass_logic() then  return true
@@ -1388,8 +1437,8 @@ cheat.register_module(
     end,
     spell_e = function(data)
       local mode = features.orbwalker:get_mode()
-      local should_e_combo = (mode == Combo_key and e_combo:get_value())
-      local should_e_harass = (mode == Harass_key and e_harass:get_value())
+      local should_e_combo = (mode == Combo_key and jmenu.e_combo:get_value())
+      local should_e_harass = (mode == Harass_key and jmenu.e_harass:get_value())
 
 
       if (should_e_combo or should_e_harass)  and e_combo_logic() then
@@ -1403,11 +1452,11 @@ cheat.register_module(
       local enemies = Data:get_enemies(3000)
       local sorted_targets = get_sorted_r_targets(enemies)
       if #sorted_targets == 0 then return false end
-      local should_SemiManualR = checkboxManR:get_value() and g_input:is_key_pressed(85)
+      local should_SemiManualR = jmenu.checkboxManR:get_value() and g_input:is_key_pressed(85)
 
 
       -- r ks logic
-      if r_KS:get_value() and should_r_ks(sorted_targets) then return true end
+      if jmenu.r_KS:get_value() and should_r_ks(sorted_targets) then return true end
 
       -- semi auto r logic
       if should_SemiManualR and try_semi_auto_r(sorted_targets) then return true end
@@ -1429,16 +1478,17 @@ check_for_prereqs()
 if REQUIRE_SLOTTED_RESTART then return end
 core = require("xCore")
 core:init()
+Colors = core.debug.Colors
 
 check_for_update()
 
 core.permashow:set_title(name)
 -- Clear
-core.permashow:register("farm", "farm", "A", true, q_clear_aoe_cgf)
+core.permashow:register("farm", "farm", "A", true, jmenu.q_clear_aoe_cgf)
 core.permashow:register("Fast W", "Fast W", "control")
 core.permashow:register("Semi-Auto Ult", "Semi-Auto Ult", "U")
-core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true, splash_harass_cfg)
-Colors = core.debug.Colors
+core.permashow:register("Extend AA To Harass", "Extend AA To Harass", "I", true, jmenu.splash_harass_cfg)
+
 
 cheat.register_callback("render", Draw)
 cheat.register_callback("feature", Refresh)
