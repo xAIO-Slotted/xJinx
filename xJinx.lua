@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.0"
+local Jinx_VERSION = "1.1.1"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -682,6 +682,50 @@ local function Visualize_damages()
   Prints("tick exit", 3)
 end
 
+
+
+-- <3 nenny
+function Vec3_Rotate(c , p, angle) -- Center, Point, Angle
+  angle = angle * (math.pi/180)
+  local rotatedX = math.cos(angle) * (p.x - c.x) - math.sin(angle) * (p.z - c.z) + c.x
+  local rotatedZ = math.sin(angle) * (p.x - c.x) + math.cos(angle) * (p.z - c.z) + c.z
+  return vec3:new(rotatedX, p.y ,rotatedZ)
+end
+
+local function get_e_vecs(start)
+  local left = nil
+  local right = nil
+  if start then
+      local offset = 180
+
+      local dist = g_local.position:dist_to(start) + offset
+      local rotater = g_local.position:extend(start, dist)
+
+      --then we can rotate around the cursor pos
+      left = Vec3_Rotate(start, rotater, 90)
+      right = Vec3_Rotate(start, rotater, -90) 
+
+  end
+  return left, start, right
+end
+
+local function count_hit_by_traps(center, enemies)
+  local hit_count = 0
+  local left, _, right = get_e_vecs(center)
+
+  for i, enemy in pairs(enemies) do
+    if enemy and core.helper:is_alive(enemy) then
+      local e_hit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0, g_local.position)
+      if e_hit.position:dist_to(center) < Data['E'].Width or e_hit.position:dist_to(left) < Data['E'].Width or e_hit.position:dist_to(right) < Data['E'].Width then
+        hit_count = hit_count + 1
+      end
+    end
+  end
+
+  return hit_count
+end
+
+
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
   if jmenu.checkboxDrawQ:get_value() then
@@ -887,7 +931,7 @@ local function Splash_harass()
           if features.orbwalker:get_mode() == Harass_key or jmenu.extend_q_auto:get_value() then
             local min_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range, 1500, 0,
               g_local.attack_speed, g_local.position)
-            local nme_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range, 1500, 0,
+            local nme_pred = features.prediction:predict(target.index, Data['AA'].long_range, 1500, 0,
               g_local.attack_speed, g_local.position)
 
             if g_local.position:dist_to(min_pred.position) < Data['AA'].long_range then
@@ -1084,7 +1128,9 @@ local function On_stasis_special_channel(index)
           if g_time >= time_to_cast_w and g_time <= time_to_cast_w + 0.25 then
             Prints("Stasis: casting w for stasis g_time:" .. tostring(g_time), 2)
             local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
-            if wHit.valid and wHit.hitchance >= 2 then
+            local minion_block = features.prediction:minion_in_line(g_local.position, wHit.position, 120)
+
+            if wHit.valid and wHit.hitchance >= 2 and not minion_block  then
               Prints("stasis: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
               g_input:cast_spell(e_spell_slot.w, wHit.position)
               features.orbwalker:set_cast_time(0.25)
@@ -1152,7 +1198,8 @@ local function On_cc_special_channel(index)
 					local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed,
 						Data['W'].Width, 0,
 						g_local.position)
-					if wHit.valid and wHit.hitchance >= 2 then
+          local minion_block = features.prediction:minion_in_line(g_local.position, wHit.position, 120)
+					if wHit.valid and wHit.hitchance >= 2 and not minion_block then
             Prints("casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
 						g_input:cast_spell(e_spell_slot.w, wHit.position)
 						features.orbwalker:set_cast_time(0.25)
@@ -1315,18 +1362,7 @@ local function w_combo_harass_logic()
   return false
 end
 
-local function e_combo_logic()
-  -- no combo logic atm :kek:
-  -- local target = Get_target()
-  -- if e_combo:get_value() == 0 and Data:in_range('E', target) then
-  --   local eHit = features.prediction:predict(target.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0, g_local.position)
-  --   if eHit.valid and eHit.hitchance >= 3 then
-  --     g_input:cast_spell(e_spell_slot.e, eHit.position)
-  --     return true
-  --   end
-  -- end
-  return false
-end
+
 
 
 
@@ -1346,7 +1382,8 @@ local function w_ks_logic()
       for _, target_info in ipairs(sorted_targets) do
         if target_info.damage > target_info.hp + 15 and target_info.hp > 1 and target_info.hitchance > ks_w_hitchance then
           local wHit = features.prediction:predict(target_info.target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width, 0, g_local.position)
-          if wHit.valid and wHit.hitchance >= ks_w_hitchance then
+          local minion_block = features.prediction:minion_in_line(g_local.position, wHit.position, 120)
+          if wHit.valid and wHit.hitchance >= ks_w_hitchance  and not minion_block then
             Prints("KS: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
             g_input:cast_spell(e_spell_slot.w, wHit.position)
             features.orbwalker:set_cast_time(0.25)
@@ -1386,7 +1423,42 @@ local function try_semi_auto_r(sorted_targets)
   end
   return false
 end
+local function should_e_multihit()
+  local enemies = Data:get_enemies(Data['E'].Range - 50)
 
+  for _, enemy in ipairs(enemies) do
+    if enemy and core.helper:is_alive(enemy) then
+      local e_hit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0, g_local.position)
+      if e_hit.valid and e_hit.hitchance >= 2 then
+        local hit_count = count_hit_by_traps(e_hit.position, enemies)
+        if hit_count > 1 then
+          Prints("Casting E to hit " .. hit_count .. " enemies", 2)
+          g_input:cast_spell(e_spell_slot.e, e_hit.position)
+          features.orbwalker:set_cast_time(0.25)
+          Last_cast_time = g_time
+          return true
+        end
+      end
+    end
+  end
+
+  return false
+end
+
+local function should_e_slowed()
+  local target = Get_target()
+  if target and core.helper:is_alive(target) then
+    local e_hit = features.prediction:predict(target.index, Data['E'].Range, Data['E'].Speed, Data['E'].Width, 0, g_local.position)
+    if e_hit.valid and e_hit.hitchance >= 2 and features.buff_cache:has_buff_of_type(target.index, e_buff_type.slow) then
+      g_input:cast_spell(e_spell_slot.e, e_hit.position)
+      Prints("Casting E on slowed target", 2)
+      features.orbwalker:set_cast_time(0.25)
+      Last_cast_time = g_time
+      return true
+    end
+  end
+  return false
+end
 
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
@@ -1438,12 +1510,14 @@ cheat.register_module(
     spell_e = function(data)
       local mode = features.orbwalker:get_mode()
       local should_e_combo = (mode == Combo_key and jmenu.e_combo:get_value())
-      local should_e_harass = (mode == Harass_key and jmenu.e_harass:get_value())
-
-
-      if (should_e_combo or should_e_harass)  and e_combo_logic() then
+    
+      if should_e_combo and should_e_multihit() then
         return true
       end
+      if should_e_combo and should_e_slowed() then
+        return true
+      end
+    
       return false
     end,
     spell_r = function(data)
