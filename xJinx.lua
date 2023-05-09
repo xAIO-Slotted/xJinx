@@ -1024,7 +1024,7 @@ local function Splash_harass()
       if SplashableMinionIndex == nil then FindSplashableMinion() end
       -- we may have found a minion so
       if SplashableMinionIndex then
-        Prints("splash minion found", 1)
+        Prints("splash minion found", 3)
         local min_obj = features.entity_list:get_by_index(SplashableMinionIndex)
         if min_obj then
           if features.orbwalker:get_mode() == Harass_key or jmenu.extend_q_auto:get_value() then
