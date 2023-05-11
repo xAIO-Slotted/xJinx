@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.3"
+local Jinx_VERSION = "1.1.4"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -329,7 +329,7 @@ function Data:refresh_data()
   Prints("refreshing", 3)
   self['AA'].Damage = g_local:get_attack_damage()
   self['AA'].rocket_launcher = self:has_rocket_launcher()
-  local range = g_local.attack_range + g_local:get_bounding_radius()
+  local range = g_local.attack_range + core.objects:get_bounding_radius(g_local)
   -- Prints("aa: " .. g_local.attack_range, 3)
   -- Prints("bound: " .. g_local:get_bounding_radius() + 15, 3)
   -- Prints("Q_level: " .. Data['Q'].Level,3)
@@ -415,8 +415,9 @@ function Data:in_range(spell, target)
 end
 
 function Data:is_enemy_near(range, override)
-  for _, entity in pairs(features.entity_list:get_enemies()) do
-    if entity.position:dist_to(g_local.position) <= range then
+  for _, entity in pairs(features.entity_list:get_enemies() ) do
+    local bounding_radius = core.objects:get_bounding_radius(entity)
+    if entity and  entity.position:dist_to(g_local.position) <= range + bounding_radius then
       return true
     end
   end
@@ -943,9 +944,9 @@ end
 local function ValidateSplashMinionAndtarget()
   if SplashabletargetIndex then
     local hero_obj = features.entity_list:get_by_index(SplashabletargetIndex)
-    if g_local.position:dist_to(hero_obj.position) < Data['AA'].long_range then
+    if g_local.position:dist_to(hero_obj.position) < Data['AA'].long_range + core.objects:get_bounding_radius(hero_obj) then
       SplashabletargetIndex = nil
-    elseif hero_obj.position:dist_to(hero_obj.position) > Data['AA'].long_range + 260 then
+    elseif hero_obj.position:dist_to(hero_obj.position) > Data['AA'].long_range + 260 + core.objects:get_bounding_radius(hero_obj) then
       SplashabletargetIndex = nil
     elseif core.helper:is_alive(hero_obj) == false then
       SplashabletargetIndex = nil
@@ -955,7 +956,7 @@ local function ValidateSplashMinionAndtarget()
     -- if SplashabletargetIndex then Prints("Splashable target valid", 1) else Prints("Splashable target removed", 1) end
     if SplashableMinionIndex then
       local min_obj = features.entity_list:get_by_index(SplashableMinionIndex)
-      if g_local.position:dist_to(min_obj.position) > Data['AA'].long_range then
+      if g_local.position:dist_to(min_obj.position) > Data['AA'].long_range + core.objects:get_bounding_radius(min_obj) then
         SplashableMinionIndex = nil
       elseif hero_obj.position:dist_to(min_obj.position) > 235 then
         SplashableMinionIndex = nil
@@ -984,7 +985,7 @@ local function FindSplashableMinion()
     for i, minionIdx in ipairs(MinionTable) do
       if SplashableMinionIndex == nil then
         local minion = features.entity_list:get_by_index(minionIdx.idx)
-        if target.position:dist_to(minion.position) < 236 and g_local.position:dist_to(minion.position) < Data['AA'].long_range then
+        if target.position:dist_to(minion.position) < 236 and g_local.position:dist_to(minion.position) < Data['AA'].long_range + core.objects:get_bounding_radius(minion) then
           --Prints("idx is minions is at " .. g_local.position:dist_to(minion.position))
           SplashableMinionIndex = minion.index
         end
@@ -1017,8 +1018,8 @@ local function Splash_harass()
   ValidateSplashMinionAndtarget()
 
   --is target outside normal Q range?
-  if core.helper:is_alive(target) and target:is_visible() and g_local.position:dist_to(target.position) > Data['AA'].long_range then
-    if g_local.position:dist_to(target.position) < Data['AA'].long_range + 260 then
+  if core.helper:is_alive(target) and target:is_visible() and g_local.position:dist_to(target.position) > Data['AA'].long_range + core.objects:get_bounding_radius(target) then
+    if g_local.position:dist_to(target.position) < Data['AA'].long_range + 260 + core.objects:get_bounding_radius(target) then
       Prints("target is inside splash range.", 3)
       -- if we already have a splash minion then why are we still searching
       if SplashableMinionIndex == nil then FindSplashableMinion() end
@@ -1028,17 +1029,21 @@ local function Splash_harass()
         local min_obj = features.entity_list:get_by_index(SplashableMinionIndex)
         if min_obj then
           if features.orbwalker:get_mode() == Harass_key or jmenu.extend_q_auto:get_value() then
-            local min_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range, 1500, 0,
+            local min_pred = features.prediction:predict(SplashableMinionIndex, Data['AA'].long_range + core.objects:get_bounding_radius(min_obj), 1500, 0,g_local.attack_speed, g_local.position)
+            local nme_pred = features.prediction:predict(target.index, Data['AA'].long_range + core.objects:get_bounding_radius(target) , 1500, 0,
               g_local.attack_speed, g_local.position)
-            local nme_pred = features.prediction:predict(target.index, Data['AA'].long_range, 1500, 0,
-              g_local.attack_speed, g_local.position)
-
-            if g_local.position:dist_to(min_pred.position) < Data['AA'].long_range then
-              Prints("sending extendo attack to " .. min_obj:get_object_name(), 2)
+            
+            if g_local.position:dist_to(min_pred.position) < Data['AA'].long_range + core.objects:get_bounding_radius(min_obj) then
               if nme_pred.position:dist_to(min_pred.position) < 235 then
-                if Data['AA'].rocket_launcher == false then g_input:cast_spell(e_spell_slot.q) end
+                Prints("sending extendo attack to " .. min_obj:get_object_name(), 2)
+                if Data['AA'].rocket_launcher == false then 
+                  g_input:cast_spell(e_spell_slot.q) 
+                  features.orbwalker:set_cast_time(0.25)
+                end
+                print("go")
                 if features.orbwalker:can_attack() and not features.orbwalker:is_in_attack() then
-                  features.orbwalker:send_attack(min_obj.network_id)
+                  g_input:issue_order_attack(min_obj.network_id)
+                  -- features.orbwalker:send_attack(min_obj.network_id)
                 end
                 return true
               end
@@ -1344,7 +1349,7 @@ local function exit_rocket_logic()
     if mode == Harass_key and Data['AA'].enemy_far then
       return false
     end
-    if g_time - Last_Q_swap_time > 0.5 then
+    if g_time - Last_Q_swap_time > 3.5 then
       Prints("exit rocket mode, bored", 2)
       g_input:cast_spell(e_spell_slot.q)
       Last_Q_swap_time = g_time
@@ -1357,9 +1362,9 @@ local function save_minion_with_q()
   if not Data['AA'].rocket_launcher and features.orbwalker:can_attack() then
     Prints("getting mins in long range", 3)
 
-    local minions_in_range = Get_minions(Data['AA'].long_range)
+    local minions_in_range = Get_minions((Data['AA'].long_range + 35))
     for _, minion in ipairs(minions_in_range) do
-      if g_local.position:dist_to(minion.position) > Data['AA'].short_range then
+      if g_local.position:dist_to(minion.position) > Data['AA'].short_range + 35 then
         local delay = Get_q_travel_time(minion) + 0.35
         local hpPred = features.prediction:predict_health(minion, delay, true)
         if hpPred ~= minion.health then
@@ -1369,6 +1374,7 @@ local function save_minion_with_q()
             Prints("Forcing target for q clear save", 2)
             g_input:cast_spell(e_spell_slot.q)
             Last_Q_swap_time = g_time
+            g_input:issue_order_attack(minion.position)
             return true
           end
         end
@@ -1378,14 +1384,16 @@ local function save_minion_with_q()
 end
 local function combo_harass_q()
   local target = Get_target()
-  if jmenu.q_combo_aoe:get_value() and target ~= nil and Data:count_enemies(250, target.position) >= jmenu.q_combo_aoe_count:get_value() then
+ 
+  -- aoe splash logic
+  if jmenu.q_combo_aoe:get_value() and target and Data:count_enemies(250, target.position) >= jmenu.q_combo_aoe_count:get_value() then
     if not Data['AA'].rocket_launcher then
       g_input:cast_spell(e_spell_slot.q)
       Last_Q_swap_time = g_time
       return true
     end
     -- we need more range...
-  else
+  else 
     if (not Data['AA'].rocket_launcher and Data['AA'].enemy_far and not Data['AA'].enemy_close) then
       g_input:cast_spell(e_spell_slot.q)
       Last_Q_swap_time = g_time
