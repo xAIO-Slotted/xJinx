@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.5"
+local Jinx_VERSION = "1.1.6"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -98,6 +98,9 @@ local function add_jmenus()
   jmenu.w_KS = sections.auto:checkbox("W KS", g_config:add_bool(true, "w_ks"))
 
   jmenu.r_KS = sections.auto:checkbox("R KS", g_config:add_bool(true, "r_ks"))
+  jmenu.r_auto_base_ult_vision = sections.auto:checkbox("Base Ult in vision", g_config:add_bool(true, "r_auto_base_ult_vision"))
+
+  jmenu.r_combo_multihit = sections.combo:checkbox("R Multihit combo", g_config:add_bool(true, "r_combo_multihit"))
   jmenu.r_KS_hitchance = sections.combo:select("R hitchance", g_config:add_int(3, "r_combo_hitchance"),
     { "low", "medium", "high", "very_high", "immobile" })
   jmenu.r_KS_dashless = sections.auto:checkbox("^ if no dash", g_config:add_bool(true, "r_auto_dashless"))
@@ -605,10 +608,6 @@ local function Draw()
     Prints("draw Q", 3)
     Visualize_spell_range()
   end
-  if jmenu.checkboxLanePressure:get_value() then
-    --local pos = vec2:new((Res.x/2) - 100, Res.y - 260 )
-    --g_render:text(pos, Color, Pressure, Font , 60)
-  end
 end
 
 
@@ -769,9 +768,6 @@ local function Time_remaining_for_dash(cai)
 end
 
 
-local function chanceTostring(val)
-
-end
 local function OnDash(index)
   local tgt = features.entity_list:get_by_index(index)
   local champion_name = string.lower(tgt.champion_name.text)
@@ -988,11 +984,127 @@ local function On_cc_special_channel(index)
   end
 end
 
+Recalling = {}
+local function ProcessRecall()
+  for i, recall in ipairs(Recalling) do
+    local obj = features.entity_list:get_by_index(recall.champ)
+    if g_time > recall.end_time or (obj:is_visible() and not obj:is_recalling()) then
+      print("removing recall: " .. obj:get_object_name())
+      table.remove(Recalling, i)
+    end
+  end
+  
+  local hero_Table = features.entity_list:get_enemies()
+  for i, obj_hero in ipairs(hero_Table) do
+    if obj_hero and core.helper:is_alive(obj_hero) and not obj_hero:is_invisible() then
+      local spell_book = obj_hero:get_spell_book()
+      local cast_info = spell_book:get_spell_cast_info()
+      if obj_hero:is_recalling() then
+        local recallIndex = nil
+        for ii, recall in pairs(Recalling) do
+          if recall.champ == obj_hero.index then
+            recallIndex = ii
+            break
+          end
+        end
+        if cast_info and cast_info.slot and cast_info.slot == 13 then
+          local end_time = cast_info.end_time -- calculate recall end time
+          local recallData = { champ = obj_hero.index, position = obj_hero.position, start = g_time, end_time = end_time }
+          if recallIndex then
+            -- Update existing recall
+            Recalling[recallIndex] = recallData
+          else
+            -- Add new recall
+            table.insert(Recalling, recallData)
+          end
+        end
+      end
+    end
+  end
+end
 
 
 local function Refresh() Data:refresh_data() end
 
+local function calculate_projectile_travel_time(distance)
+  local r_speed_1 = 1700  -- Initial speed
+  local r_speed_2 = 2200  -- Speed after 1350 units
+  local r_acceleration_distance = 1350  -- Distance at which speed changes
+
+  local time = 0
+  
+  if distance <= r_acceleration_distance then
+    -- If distance is less than or equal to 1350, use the first speed
+    time = distance / r_speed_1
+  else
+    -- If distance is more than 1350, calculate the time for the first 1350 units, then add the time for the remaining distance with the second speed
+    local time_1 = r_acceleration_distance / r_speed_1
+    local time_2 = (distance - r_acceleration_distance) / r_speed_2
+    time = time_1 + time_2
+  end
+
+  return time
+end
+local function baseult()
+  local should_baseUlt = jmenu.r_auto_base_ult_vision:get_value() and
+      not core.objects:is_enemy_near(Data['AA'].short_range) and not g_input:is_key_pressed(17) and
+      core.objects:can_cast(e_spell_slot.r)
+  if not should_baseUlt then return end
+  ProcessRecall()
+  if #Recalling == 0 then return end
+
+  local delay = 0.015
+
+  for i, recall in pairs(Recalling) do
+    local enemy = features.entity_list:get_by_index(recall.champ)
+    if not enemy then return end
+    local rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, core.objects:get_spell_level(e_spell_slot.r))
+
+    if enemy.health + 30 > rdmg then
+      return false
+    end
+
+    local remainingTime = (recall.end_time - g_time)
+
+    local enemy_dist = g_local.position:dist_to(recall.position)
+
+    local enemy_base_position = core.objects:get_baseult_pos(enemy)
+    local base_dist = g_local.position:dist_to(enemy_base_position)
+
+    local time_To_hit_enemy = 0.692 + calculate_projectile_travel_time(enemy_dist) + delay
+    local time_To_hit_base = 0.5 + calculate_projectile_travel_time(base_dist) + delay
+
+    if (remainingTime >= time_To_hit_enemy) or (remainingTime >= time_To_hit_base) then
+      print("looking for a recall ult... " .. tostring(remainingTime),3)
+      -- start with try to hit enemy
+      if not core.vec3_util:is_colliding(g_local.position, recall.position, enemy, Data['R'].Width) then
+        Prints("trying to hit enemy with recall ulti hold control to cancel .. " .. time_To_hit_enemy, 2)
+        if remainingTime >= time_To_hit_enemy and remainingTime <= 6 then
+
+          Prints("-=--==-=--= RECALL ULT =--=-==-=--=", 2)
+          g_input:cast_spell(e_spell_slot.r, recall.position)
+          features.orbwalker:set_cast_time(0.25)
+          return true
+        end
+      end if not core.vec3_util:is_colliding(g_local.position, enemy_base_position, enemy, Data['R'].Width) then
+        Prints("trying to hit base with recall ulti hold control to cancel .. " .. tostring(time_To_hit_base), 2)
+        if math.abs(remainingTime - time_To_hit_base) <= 0.05 then
+
+          print("-=--==-=--= BASE ULT =--=-==-=--=", 2)
+          g_input:cast_spell(e_spell_slot.r, enemy_base_position)
+          features.orbwalker:set_cast_time(0.25)
+          return true
+        end
+      end
+    end
+  end
+end
+
 local function OnTick()
+  if core.objects:can_cast(e_spell_slot.r) and jmenu.r_auto_base_ult_vision:get_value() then
+    baseult() 
+  end
+  
   if g_time - Last_cast_time <= 0.05 then return end
   if g_local:is_recalling() then return false end
   Prints("tick...", 3)
@@ -1320,13 +1432,14 @@ cheat.register_module(
       local sorted_targets = get_sorted_r_targets(enemies)
       if #sorted_targets == 0 then return false end
       local should_SemiManualR = jmenu.checkboxManR:get_value() and g_input:is_key_pressed(85)
-
+      local should_baseUlt = jmenu.r_auto_base_ult_vision:get_value() and not core.objects:is_enemy_near(Data['AA'].short_range) and not g_input:is_key_pressed(17)
 
       -- r ks logic
       if jmenu.r_KS:get_value() and should_r_ks(sorted_targets) then return true end
 
       -- semi auto r logic
       if should_SemiManualR and try_semi_auto_r(sorted_targets) then return true end
+
 
       return false
     end,
