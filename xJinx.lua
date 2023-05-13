@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.4"
+local Jinx_VERSION = "1.1.5"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -53,7 +53,6 @@ local function add_jmenus()
     auto = navigation:add_section("auto"),
     misc = navigation:add_section("misc"),
     draw = navigation:add_section("drawings"),
-    visualizer = navigation:add_section("visualizer"),
   }
 
   -- Combo
@@ -115,28 +114,11 @@ local function add_jmenus()
 
   -- Misc
   jmenu.checkboxManR = sections.misc:checkbox("Manual Ult on U", g_config:add_bool(true, "Semi Auto Cast R"))
-  jmenu.checkboxMinion = sections.misc:checkbox("draw Minions", g_config:add_bool(true, "MIN"))
   jmenu.checkboxLanePressure = sections.misc:checkbox("draw Lane pressure", g_config:add_bool(true, "LANE"))
   -- Draw
-  jmenu.checkboxVisualDmg = sections.draw:checkbox("damage visual", g_config:add_bool(true, "visualize damage"))
   jmenu.checkboxDrawQ = sections.draw:checkbox("Draw alternate Q range",
     g_config:add_bool(true, "Draw alternate Q range"))
   jmenu.checkboxDrawW = sections.draw:checkbox("Draw W off cooldown", g_config:add_bool(true, "Draw W off cooldown"))
-
-  -- Visualizer
-  -- combined bars
-  jmenu.visualizer_show_combined_bars = sections.visualizer:checkbox("Show combined bars",
-    g_config:add_bool(true, "show_combined_bars"))
-  jmenu.visualizer_split_colors = sections.visualizer:checkbox("^ Split colors", g_config:add_bool(true, "split_colors"))
-
-  jmenu.visualizer_show_stacked_bars = sections.visualizer:checkbox("Show stacked bars",
-    g_config:add_bool(true, "show_stacked_bars"))
-  jmenu.visualizer_visualize_autos = sections.visualizer:checkbox("Visualize Autos",
-    g_config:add_bool(true, "visualize_autos"))
-  jmenu.visualizer_autos_slider = sections.visualizer:slider_int("x", g_config:add_int(1, "autos_slider"), 1, 5, 1)
-  jmenu.visualizer_visualize_w = sections.visualizer:checkbox("Visualize W", g_config:add_bool(true, "visualize_w"))
-  jmenu.visualizer_visualize_r = sections.visualizer:checkbox("Visualize R", g_config:add_bool(true, "visualize_r"))
-  jmenu.visualizer_show_text = sections.visualizer:checkbox("Show text", g_config:add_bool(true, "visualizer_show_text"))
 
   return jmenu
 end
@@ -345,8 +327,8 @@ function Data:refresh_data()
   self['AA'].short_range = range
 
   self['AA'].long_range = long_range
-  self['AA'].enemy_close = self:is_enemy_near(range)
-  self['AA'].enemy_far = self:is_enemy_near(long_range)
+  self['AA'].enemy_close = core.objects:is_enemy_near(range)
+  self['AA'].enemy_far = core.objects:is_enemy_near(long_range)
 
   self['Q'].Level = g_local:get_spell_book():get_spell_slot(e_spell_slot.q).level
   self['Q'].spell = g_local:get_spell_book():get_spell_slot(e_spell_slot.q)
@@ -367,35 +349,6 @@ function Data:refresh_data()
   Prints("refreshed", 3)
 end
 
-function Data:is_ready(spell)
-  if self[spell].spell:is_ready() then
-    return true
-  end
-  return false
-end
-
-function Data:has_enough_mana(spell)
-  local costs = self[spell].manaCost
-  local level = self[spell].Level
-  local cost = costs[level]
-
-  if g_local and spell and cost then
-    --Prints("Cost of  " .. spell .. " at " .. level .. " level is " .. cost, 3)
-    if g_local.mana >= cost then
-      return true
-    else
-      return false
-    end
-  end
-end
-
-function Data:can_cast(spell)
-  if self:is_ready(spell) and self:has_enough_mana(spell) then
-    return true
-  end
-  return false
-end
-
 function Data:has_rocket_launcher()
   local buffs = features.buff_cache:get_all_buffs(g_local.index)
   for _, buff in pairs(buffs) do
@@ -414,56 +367,6 @@ function Data:in_range(spell, target)
   end
 end
 
-function Data:is_enemy_near(range, override)
-  for _, entity in pairs(features.entity_list:get_enemies() ) do
-    local bounding_radius = core.objects:get_bounding_radius(entity)
-    if entity and  entity.position:dist_to(g_local.position) <= range + bounding_radius then
-      return true
-    end
-  end
-  return false
-end
-
-function Data:get_enemies(range, pos)
-  pos = pos or g_local.position
-  local enemies = {}
-
-  for _, entity in pairs(features.entity_list:get_enemies()) do
-    if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
-      table.insert(enemies, entity)
-    end
-  end
-  return enemies
-end
-
-function Data:count_enemy_minions(range, position)
-  position = position or g_local.position
-  return #self:get_enemies(range, position)
-end
-
-function Data:get_enemy_minions(range, pos)
-  pos = pos or g_local.position
-  local enemies = {}
-
-  for _, entity in pairs(features.entity_list:get_enemy_minions()) do
-    if entity and entity.position and entity.position:dist_to(pos) <= range and core.helper:is_alive(entity) then
-      table.insert(enemies, entity)
-    end
-  end
-  return enemies
-end
-
-function Data:count_enemies(range, position)
-  position = position or g_local.position
-  return #self:get_enemies(range, position)
-end
-
-local function Get_q_travel_time(minion)
-  local missile_speed = 1700 -- Jinx's Q missile speed in rocket launcher form
-  local distance = g_local.position:dist_to(minion.position)
-  return distance / missile_speed
-end
-
 local function IsUnderTurret(pos)
   local range = 850
   for _, unit in pairs(features.entity_list:get_enemy_turrets()) do
@@ -480,7 +383,7 @@ local function get_sorted_targets(enemies, damage_function, spell_data, delay)
   if #enemies == 0 then return targets end
   for i, enemy in pairs(enemies) do
     if enemy and core.helper:is_alive(enemy) then
-      local delay = Get_q_travel_time(enemy) + 0.35
+      local delay = core.objects:get_aa_travel_time(enemy, g_local, 1700) + 0.35
       local hpPred = features.prediction:predict_health(enemy, delay, true)
       local dmg = damage_function(enemy)
       local hit = features.prediction:predict(enemy.index, spell_data.Range, spell_data.Speed, spell_data.Width, 0,
@@ -518,19 +421,18 @@ local function Get_target()
   -- if core.target_selector:GET_STATUS() then print("ts: true") else print("ts: false") end
   local target = core.target_selector:get_main_target()
 
-
   -- if we are on core ts return core ts else return get_default_target
   if core.target_selector:GET_STATUS() then
     target = core.target_selector:get_main_target()
     -- try even harder to find a target
     if target == nil or (target and g_local.position:dist_to(target.position) > 2000) then
-      if Data:count_enemies(2000) > 0 then
+      if core.objects:count_enemy_champs(2000) > 0 then
         print("get second try")
         target = core.target_selector:get_second_target(2000)
         print("get thirds try")
-
+        
         if target == nil or (target and g_local.position:dist_to(target.position) > 2000) then
-          local enemies = Data:get_enemies(2000)
+          local enemies = core.objects:get_enemy_champs(2000)
           local sorted = get_sorted_w_targets(enemies)
           if sorted and #sorted > 0 then
             if sorted[1] and sorted[1].position then
@@ -549,188 +451,6 @@ local function Get_target()
   end
   return target
 end
-
-local function RenderDamageBar(enemy, combodmg, aadmg, wdmg, rdmg, bar_height, yOffset)
-  yOffset = yOffset or 0
-  local screen = g_render:get_screensize()
-  local width_offset = 0.055
-  local base_x_offset = 0.43
-  local base_y_offset_ratio = 0.002
-  local bar_width = (screen.x * width_offset)
-  local base_position = enemy:get_hpbar_position()
-
-  local base_y_offset = screen.y * base_y_offset_ratio
-
-  base_position.x = base_position.x - bar_width * base_x_offset
-  base_position.y = base_position.y - bar_height * base_y_offset + yOffset
-
-  local function DrawDamageSection(color, damage, remaining_health)
-    local damage_mod = damage / enemy.max_health
-    local box_start_x = base_position.x + bar_width * remaining_health
-    local box_size_x = (bar_width * damage_mod) * -1
-
-    -- Prevent the damage bar from going beyond the left bound of the enemy HP bar
-    if box_start_x + box_size_x < base_position.x then
-      box_size_x = base_position.x - box_start_x
-    end
-
-    local box_start = vec2:new(box_start_x, base_position.y)
-    local box_size = vec2:new(box_size_x, bar_height)
-    g_render:filled_box(box_start, box_size, color)
-    return remaining_health - damage_mod
-  end
-
-  local remaining_health = enemy.health / enemy.max_health
-  if combodmg > 0 then
-    remaining_health = DrawDamageSection(Colors.transparent.purple, combodmg, remaining_health)
-  end
-  if aadmg > 0 then
-    remaining_health = DrawDamageSection(Colors.transparent.green, aadmg, remaining_health)
-  end
-  if wdmg > 0 then
-    remaining_health = DrawDamageSection(Colors.transparent.blue, wdmg, remaining_health)
-  end
-  if rdmg > 0 then
-    remaining_health = DrawDamageSection(Colors.transparent.red, rdmg, remaining_health)
-  end
-end
-local function RenderStackedBars(enemy, aadmg, wdmg, rdmg)
-  local screen = g_render:get_screensize()
-  local height_offset = 0.010
-  local bar_height = (screen.y * height_offset)
-
-
-  local combined_aadmg = aadmg
-  if jmenu.visualizer_visualize_autos:get_value() then
-    RenderDamageBar(enemy, 0, aadmg, 0, 0, bar_height, 0)
-  end
-
-  if jmenu.visualizer_visualize_w:get_value() then
-    RenderDamageBar(enemy, 0, 0, wdmg, 0, bar_height, -15)
-    combined_aadmg = combined_aadmg + wdmg
-  end
-
-  if jmenu.visualizer_visualize_r:get_value() then
-    RenderDamageBar(enemy, 0, 0, 0, rdmg, bar_height, 15)
-    combined_aadmg = combined_aadmg + rdmg
-  end
-
-  -- Render the combined damage purple bar
-  --RenderDamageBar(enemy, combined_aadmg, 0,0, 0, bar_height, 0)
-end
-
-local function RenderCombinedBars(enemy, aadmg, wdmg, rdmg)
-  local screen = g_render:get_screensize()
-  local height_offset = 0.010
-  local bar_height = (screen.y * height_offset)
-
-  -- if any of the jmenu visualizers are off i want to set the dmg to 0 so it doesnt render on the combined bar
-  if not jmenu.visualizer_visualize_autos:get_value() then
-    aadmg = 0
-  end
-  if not jmenu.visualizer_visualize_w:get_value() then
-    wdmg = 0
-  end
-  if not jmenu.visualizer_visualize_r:get_value() then
-    rdmg = 0
-  end
-  local combodmg = aadmg + wdmg + rdmg
-
-  if jmenu.visualizer_split_colors:get_value() then
-    RenderDamageBar(enemy, 0, aadmg, wdmg, rdmg, bar_height, 0)
-  else
-    RenderDamageBar(enemy, combodmg, 0, 0, 0, bar_height, 0)
-  end
-end
-
-local function DisplayKillableText(enemy, nmehp, aadmg, wdmg, rdmg)
-  local pos = enemy.position
-  if pos:to_screen() ~= nil then
-    local spells_text = ""
-    local killable_text = ""
-
-    local autos_to_kill = std_math.ceil(nmehp / aadmg)
-    if nmehp <= aadmg then
-      killable_text = "AA Kill"
-    elseif nmehp <= wdmg then
-      killable_text = "W Kill"
-    elseif nmehp <= rdmg + wdmg then
-      killable_text = "Combo Kill"
-      if jmenu.visualizer_visualize_w:get_value() then
-        spells_text = "W"
-      end
-      if jmenu.visualizer_visualize_r:get_value() then
-        spells_text = spells_text .. (spells_text ~= "" and " + " or "") .. "R"
-      end
-    else
-      if Data:can_cast('W') and jmenu.visualizer_visualize_w:get_value() then
-        autos_to_kill = std_math.ceil((nmehp - wdmg) / aadmg)
-        spells_text = "W"
-      end
-      if Data:can_cast('R') and jmenu.visualizer_visualize_r:get_value() then
-        autos_to_kill = std_math.ceil((nmehp - rdmg) / aadmg)
-        spells_text = (spells_text ~= "" and " + " or "") .. "R"
-      end
-      if Data:can_cast('W') and Data:can_cast('R') and jmenu.visualizer_visualize_w:get_value() and jmenu.visualizer_visualize_r:get_value() then
-        autos_to_kill = std_math.ceil((nmehp - wdmg - rdmg) / aadmg)
-        spells_text = "W + R"
-      end
-      killable_text = spells_text .. (spells_text ~= "" and " + " or "") .. tostring(autos_to_kill) .. " AA to kill"
-    end
-    if killable_text ~= "" then
-      local killable_pos = vec2:new(pos:to_screen().x, pos:to_screen().y - 80)
-      g_render:text(killable_pos, color:new(255, 255, 255), killable_text, Font, 30)
-    end
-  end
-end
-
-local function get_damage_array(enemy)
-  local base_auto_dmg = core.damagelib:calc_aa_dmg(g_local, enemy)
-  local aadmg = 0
-  local wdmg = 0
-  local rdmg = 0
-  local aadmg = base_auto_dmg * jmenu.visualizer_autos_slider:get_value()
-  -- if is
-  if Data:can_cast('W') then
-    wdmg = core.damagelib:calc_spell_dmg("W", g_local, enemy, 1, Data['W'].Level)
-  end
-  if Data:can_cast('R') then
-    rdmg = core.damagelib:calc_spell_dmg("R", g_local, enemy, 1, Data['R'].Level)
-  end
-  return aadmg, wdmg, rdmg
-end
-
-local function Visualize_damage(enemy)
-  local nmehp = enemy.health
-
-  local aadmg, wdmg, rdmg = get_damage_array(enemy)
-
-  -- combined bars
-  if jmenu.visualizer_show_combined_bars:get_value() then
-    RenderCombinedBars(enemy,  aadmg, wdmg, rdmg)
-  end
-  -- stacked bars
-  if jmenu.visualizer_show_stacked_bars:get_value() then
-    RenderStackedBars(enemy, aadmg, wdmg, rdmg)
-  end
-  -- killable text
-  if jmenu.visualizer_show_text:get_value() then
-    DisplayKillableText(enemy, nmehp, core.damagelib:calc_aa_dmg(g_local, enemy), wdmg, rdmg)
-  end
-end
-
-local function Visualize_damages()
-  if g_time - Last_cast_time <= 0.15 then return end
-  Prints("draw dmg in", 3)
-
-  for i, enemy in pairs(features.entity_list:get_enemies()) do
-    if core.helper:is_alive(enemy) and enemy:is_visible() and g_local.position:dist_to(enemy.position) < 3000 then
-      Visualize_damage(enemy)
-    end
-  end
-  Prints("tick exit", 3)
-end
-
 
 
 -- <3 nenny
@@ -784,11 +504,10 @@ local function Visualize_spell_range()
       g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].long_range, 2, 50, 1)
     end
   end
-  if jmenu.checkboxDrawW:get_value() and Data:can_cast('W') then
+  if jmenu.checkboxDrawW:get_value() and core.objects:can_cast(e_spell_slot.w) then
     g_render:circle_3d(g_local.position, Colors.solid.blue, Data['W'].Range, 2, 50, 1)
   end
 end
-
 
 local function get_harass_minions_near(obj_hero_idx, range)
   Prints("get harass min near enter", 3)
@@ -843,48 +562,6 @@ local function get_harass_minions_near(obj_hero_idx, range)
   return true
 end
 
-local function drawMins()
-  local MinionInRange = Data:get_enemy_minions(1500)
-  for _, obj_min in pairs(MinionInRange) do
-    if obj_min and obj_min:is_minion() then
-      local color = nil
-      local aa = core.damagelib:calc_aa_dmg(g_local, obj_min)
-      local real_hp = obj_min.health
-      local delay = Get_q_travel_time(obj_min) + 0.35
-      local pred_hp = features.prediction:predict_health(obj_min, delay, true)
-      local dying = pred_hp < 1
-      local has_damage_incoming = pred_hp == real_hp
-      local can_kill = pred_hp <= aa
-      local soon_kill = pred_hp <= aa + aa and has_damage_incoming and pred_hp > aa
-
-      if can_kill then
-        if has_damage_incoming then
-          if dying then
-            color = Colors.solid.red
-          else
-            color = Colors.solid.green
-          end
-        else
-          color = Colors.solid.blue
-        end
-      elseif soon_kill then
-        if has_damage_incoming then
-          color = Colors.solid.red
-        else
-          color = Colors.solid.yellow
-        end
-      else
-        color = Colors.solid.white
-      end
-      -- draw 3d circl of color on minion
-      if color then 
-        g_render:circle_3d(obj_min.position, color, 35, 2, 50, 1)
-      end
-    end
-  end
-end
-
-
 local function show_splash_harass()
   if SplashabletargetIndex then
     Prints("draw harass", 3)
@@ -924,9 +601,6 @@ local function Draw()
     Prints("draw harass", 3)
     show_splash_harass()
   end
-  if jmenu.checkboxVisualDmg:get_value() then
-    Visualize_damages()
-  end
   if jmenu.checkboxDrawQ:get_value() or jmenu.checkboxDrawW:get_value() then
     Prints("draw Q", 3)
     Visualize_spell_range()
@@ -934,9 +608,6 @@ local function Draw()
   if jmenu.checkboxLanePressure:get_value() then
     --local pos = vec2:new((Res.x/2) - 100, Res.y - 260 )
     --g_render:text(pos, Color, Pressure, Font , 60)
-  end
-  if jmenu.checkboxMinion:get_value() then
-    drawMins()
   end
 end
 
@@ -1011,7 +682,7 @@ end
 
 local function Splash_harass()
   if jmenu.checkboxJinxSplashHarass:get_value() == false then return false end
-  if features.orbwalker:is_in_attack() or features.evade:is_active() or not Data:can_cast('Q') then return false end
+  if features.orbwalker:is_in_attack() or features.evade:is_active() or not core.objects:can_cast(e_spell_slot.q) then return false end
   local target = Get_target()
   if target == nil then return false end
   SplashabletargetIndex = target.index
@@ -1149,7 +820,7 @@ local function OnDash(index)
     Prints("Time Remaining: " .. tostring(time_remaining), 2)
     local trapped = false
 
-    if jmenu.e_agc:get_value() and time_remaining > (Data['E'].castTime - 0.5) and g_local.position:dist_to(cai.path_end) < Data['E'].Range and Data:can_cast('E') then
+    if jmenu.e_agc:get_value() and time_remaining > (Data['E'].castTime - 0.5) and g_local.position:dist_to(cai.path_end) < Data['E'].Range and core.objects:can_cast(e_spell_slot.e) then
       g_input:cast_spell(e_spell_slot.e, cai.path_end)
       features.orbwalker:set_cast_time(0.25)
       Last_cast_time = g_time
@@ -1159,7 +830,7 @@ local function OnDash(index)
     -- dont w under tower unless already in combo mode
     if (IsUnderTurret(g_local.position) and not features.orbwalker:get_mode() == Combo_key) then return false end
 
-    if jmenu.w_agc:get_value() and time_remaining > (Data['W'].castTime - 0.5) and Data:can_cast('W') then
+    if jmenu.w_agc:get_value() and time_remaining > (Data['W'].castTime - 0.5) and core.objects:can_cast(e_spell_slot.w) then
       local minion_block = features.prediction:minion_in_line(g_local.position, cai.path_end, 120)
       if not minion_block and g_local.position:dist_to(cai.path_end) > 300 then
         g_input:cast_spell(e_spell_slot.w, cai.path_end)
@@ -1198,11 +869,11 @@ local function On_stasis_special_channel(index)
       local should_cast_w = false
       local should_cast_e = false
 
-      if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+      if jmenu.w_auto:get_value() and core.objects:can_cast(e_spell_slot.w) and Data:in_range('W', enemy) then
         should_cast_w = true
       end
 
-      if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+      if jmenu.e_auto:get_value() and core.objects:can_cast(e_spell_slot.e) and Data:in_range('E', enemy) then
         should_cast_e = true
       end
       if should_cast_e == false and should_cast_w == false then return end
@@ -1260,7 +931,6 @@ local function On_cc_special_channel(index)
     -- w_auto_cc  w_auto_channel w_auto_special
     if core.helper:is_alive(enemy) and not enemy:is_invisible() then
       Prints("checking if " .. enemy:get_object_name() .. " is ccd or immobile or stasis", 3)
-
       local should_cast_w = false
       local should_cast_e = false
 
@@ -1275,7 +945,7 @@ local function On_cc_special_channel(index)
       if is_immobile or is_ccd then
         Prints("is ccd or immobile looking to cast", 2)
 
-        if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+        if jmenu.w_auto:get_value() and core.objects:can_cast(e_spell_slot.w) and Data:in_range('W', enemy) then
           should_cast_w = true
         end
         -- please dont laser under enemy tower lol
@@ -1283,14 +953,14 @@ local function On_cc_special_channel(index)
           should_cast_w = false
         end
 
-        if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+        if jmenu.e_auto:get_value() and core.objects:can_cast(e_spell_slot.e) and Data:in_range('E', enemy) then
           should_cast_e = true
         end
       end
       if should_cast_e or should_cast_w then
         Prints("lets cast something", 2)
-
-        if jmenu.e_auto:get_value() and Data:can_cast('E') and Data:in_range('E', enemy) then
+        
+        if jmenu.e_auto:get_value() and core.objects:can_cast(e_spell_slot.e) and Data:in_range('E', enemy) then
           local eHit = features.prediction:predict(enemy.index, Data['E'].Range, Data['E'].Speed,
             Data['E'].Width, 0,
             g_local.position)
@@ -1301,7 +971,7 @@ local function On_cc_special_channel(index)
           Last_cast_time = g_time
         end
         Prints("lets cast something 2", 2)
-        if jmenu.w_auto:get_value() and Data:can_cast('W') and Data:in_range('W', enemy) then
+        if jmenu.w_auto:get_value() and core.objects:can_cast(e_spell_slot.w) and Data:in_range('W', enemy) then
           local wHit = features.prediction:predict(enemy.index, Data['W'].Range, Data['W'].Speed,
             Data['W'].Width, 0,
             g_local.position)
@@ -1343,6 +1013,15 @@ local function OnTick()
   Prints("tick exit", 3)
 end
 
+local function fakeorbwalk()
+-- if mode clear and orbwalker 
+
+
+
+
+end
+
+
 local function exit_rocket_logic()
   local mode = features.orbwalker:get_mode()
   if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and jmenu.q_clear:get_value() then
@@ -1365,7 +1044,7 @@ local function save_minion_with_q()
     local minions_in_range = Get_minions((Data['AA'].long_range + 35))
     for _, minion in ipairs(minions_in_range) do
       if g_local.position:dist_to(minion.position) > Data['AA'].short_range + 35 then
-        local delay = Get_q_travel_time(minion) + 0.35
+        local delay = core.objects:get_aa_travel_time(minion, g_local, 1700) + 0.35
         local hpPred = features.prediction:predict_health(minion, delay, true)
         if hpPred ~= minion.health then
           local aa_dmg = core.damagelib:calc_aa_dmg(g_local, minion)
@@ -1374,7 +1053,7 @@ local function save_minion_with_q()
             Prints("Forcing target for q clear save", 2)
             g_input:cast_spell(e_spell_slot.q)
             Last_Q_swap_time = g_time
-            g_input:issue_order_attack(minion.position)
+            g_input:issue_order_attack(minion.network_id)
             return true
           end
         end
@@ -1386,7 +1065,7 @@ local function combo_harass_q()
   local target = Get_target()
  
   -- aoe splash logic
-  if jmenu.q_combo_aoe:get_value() and target and Data:count_enemies(250, target.position) >= jmenu.q_combo_aoe_count:get_value() then
+  if jmenu.q_combo_aoe:get_value() and target and core.objects:count_enemy_champs(250, target.position) >= jmenu.q_combo_aoe_count:get_value() then
     if not Data['AA'].rocket_launcher then
       g_input:cast_spell(e_spell_slot.q)
       Last_Q_swap_time = g_time
@@ -1482,7 +1161,7 @@ local function get_semi_auto_r_target(sorted_targets)
 end
 
 local function w_ks_logic()
-  local enemies = Data:get_enemies(Data['W'].Range)
+  local enemies = core.objects:get_enemy_champs(Data['W'].Range)
   local sorted_targets = get_sorted_w_targets(enemies)     -- adjust delay as needed
   local ks_w_hitchance = 3
 
@@ -1534,7 +1213,7 @@ local function try_semi_auto_r(sorted_targets)
   return false
 end
 local function should_e_multihit()
-  local enemies = Data:get_enemies(Data['E'].Range - 50)
+  local enemies = core.objects:get_enemy_champs(Data['E'].Range - 50)
 
   for _, enemy in ipairs(enemies) do
     if enemy and core.helper:is_alive(enemy) then
@@ -1555,6 +1234,7 @@ local function should_e_multihit()
 
   return false
 end
+
 
 local function should_e_slowed()
   local target = Get_target()
@@ -1636,7 +1316,7 @@ cheat.register_module(
     spell_r = function(data)
       if features.evade:is_active() or features.orbwalker:is_in_attack() or g_local:is_recalling() then return false end
 
-      local enemies = Data:get_enemies(3000)
+      local enemies = core.objects:get_enemy_champs(3000)
       local sorted_targets = get_sorted_r_targets(enemies)
       if #sorted_targets == 0 then return false end
       local should_SemiManualR = jmenu.checkboxManR:get_value() and g_input:is_key_pressed(85)
