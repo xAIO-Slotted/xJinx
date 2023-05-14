@@ -1364,6 +1364,38 @@ local function should_e_slowed()
   return false
 end
 
+local function try_r_multihit(sorted_targets)
+  if not core.objects:can_cast(e_spell_slot.r) then
+    return false
+  end
+
+  for i, enemy in pairs(sorted_targets) do
+    local rHit = features.prediction:predict(enemy.target.index, Data['R'].Range, Data['R'].Speed, Data['R'].Width, 0, g_local.position)
+    local bad_hit =  core.vec3_util:is_colliding(g_local.position, enemy.target.position, enemy.target, Data['R'].Width)
+
+    local allies_to_follow = #core.objects:get_ally_champs(800, enemy.target.position) or 0
+    local splashable_targets = core.objects:get_enemy_champs(400, enemy.target.position)
+    local good_splashables = 0
+
+    for _, splash_target in pairs(splashable_targets) do
+      if core.helper:get_percent_hp(splash_target) <= 65 then 
+        good_splashables = good_splashables + 1
+      end
+    end
+
+    local do_multihit = allies_to_follow >= 2 and good_splashables >= 2 and core.helper:get_percent_hp(enemy.target) <= 65 and not bad_hit and rhit.valid and rHit.hitchance >= jmenu.r_KS_hitchance:get_value()
+    if do_multihit then
+      Prints("Casting R to multihit with " .. allies_to_follow .. " allies and " .. good_splashables .. " enemies < 65%", 2)
+      g_input:cast_spell(e_spell_slot.r, rHit.position)
+      features.orbwalker:set_cast_time(0.25)
+
+      return true
+    end
+  end
+
+  return false
+end
+
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
   {
@@ -1432,7 +1464,7 @@ cheat.register_module(
       local sorted_targets = get_sorted_r_targets(enemies)
       if #sorted_targets == 0 then return false end
       local should_SemiManualR = jmenu.checkboxManR:get_value() and g_input:is_key_pressed(85)
-      local should_baseUlt = jmenu.r_auto_base_ult_vision:get_value() and not core.objects:is_enemy_near(Data['AA'].short_range) and not g_input:is_key_pressed(17)
+      local should_r_multihit = features.orbwalker:get_mode() == Combo_key and jmenu.r_combo_multihit:get_value()
 
       -- r ks logic
       if jmenu.r_KS:get_value() and should_r_ks(sorted_targets) then return true end
@@ -1440,6 +1472,7 @@ cheat.register_module(
       -- semi auto r logic
       if should_SemiManualR and try_semi_auto_r(sorted_targets) then return true end
 
+      if should_r_multihit and try_r_multihit(sorted_targets) then return true end
 
       return false
     end,
