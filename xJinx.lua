@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.7"
+local Jinx_VERSION = "1.1.8"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -72,13 +72,14 @@ local function add_jmenus()
 
   -- Clear
   jmenu.q_clear = sections.clear:checkbox("use Q (minion of range)", g_config:add_bool(true, "q_clear"))
+  jmenu.q_clear_aoe_cgf = g_config:add_bool(true, "q_clear_aoe")
   jmenu.q_clear_aoe = sections.clear:checkbox("Q AOE (fast Lane Clear mode)", g_config:add_bool(true, "q_clear_aoe"))
   jmenu.q_clear_aoe_count = sections.clear:slider_int("^ if x enemies", g_config:add_int(3, "q_aoe_count"), 0, 5, 1)
 
   -- Harass
   jmenu.q_harass = sections.harass:checkbox("use Q", g_config:add_bool(true, "q_auto"))
-  jmenu.checkboxJinxSplashHarass = sections.harass:checkbox("extend aa range with Q splash",
-    g_config:add_bool(true, "splash_harass"))
+  jmenu.splash_harass_cfg = g_config:add_bool(true, "splash_harass")
+  jmenu.checkboxJinxSplashHarass = sections.harass:checkbox("extend aa range with Q splash", g_config:add_bool(true, "splash_harass"))
 
   jmenu.w_harass = sections.harass:checkbox("use W", g_config:add_bool(true, "w_harass"))
   jmenu.w_harass_not_in_range = sections.harass:checkbox("^ if outside of aa range",
@@ -1205,6 +1206,29 @@ local function combo_harass_q()
   end
 end
 local function fast_clear_aoe_Logic()
+  local jinx_aa_slots = {64,65,70,71}
+  local target = core.objects:get_current_target_of_slot(jinx_aa_slots)
+  if target then
+    Prints("q logic AOE and target came back: " .. tostring(target:get_object_name()), 3)
+    if target and core.helper:is_alive(target) then
+      local nearby = core.objects:count_enemy_minions(250, target.position)
+      Prints("count for aoe splash would be: " .. tostring(nearby), 3)
+      if nearby >= jmenu.q_clear_aoe_count:get_value() then
+        if not Data['AA'].roScket_launcher then
+          Prints("q AOE to hit " .. tostring(nearby) .. "minions", 2)
+          g_input:cast_spell(e_spell_slot.q)
+          Last_Q_swap_time = g_time
+          return true
+        end
+      else if Data['AA'].rocket_launcher then
+          Prints("q AOE only hits " .. tostring(nearby) .. "minion[s]", 2)
+          g_input:cast_spell(e_spell_slot.q)
+          Last_Q_swap_time = g_time
+          return true
+        end
+      end
+    end
+  end
   return false
 end
 local function should_skip_w_cast()
@@ -1420,10 +1444,10 @@ cheat.register_module(
       if (mode == Clear_key or mode == Harass_key or mode == Lasthit) and jmenu.q_clear:get_value() and save_minion_with_q() then return true end
 
       -- Clear logic -- AoE minions
-      if (mode == Clear_key or mode == Harass_key) and jmenu.q_clear_aoe:get_value() and fast_clear_aoe_Logic() then return true end
+      if (mode == Clear_key or mode == Harass_key) and jmenu.q_clear_aoe:get_value() and features.orbwalker:is_in_attack() and fast_clear_aoe_Logic() then return true end
 
       -- Exit rocket logic
-      if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and jmenu.q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then return true end
+       -- if Data['AA'].rocket_launcher and not features.orbwalker:is_in_attack() and mode ~= Combo_key and mode ~= Idle_key and jmenu.q_clear:get_value() and g_time - Last_Q_swap_time > 0.5 and exit_rocket_logic() then return true end
 
       return false
     end,
