@@ -1,6 +1,5 @@
 A release of My and @ampx Jinx Lua
-``` https://github.com/xAIO-Slotted/xJinx/blob/main/xJinx.lua ```
-```https://github.com/xAIO-Slotted/xCore/blob/main/xCore.lua ```
+
 ```Instructions```
 Add xJinx.lua to the lua folder
 thats it :slight_smile:
