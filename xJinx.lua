@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.8"
+local Jinx_VERSION = "1.1.9"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -120,8 +120,10 @@ local function add_jmenus()
   jmenu.checkboxManR = sections.misc:checkbox("Manual Ult on U", g_config:add_bool(true, "Semi Auto Cast R"))
   jmenu.checkboxLanePressure = sections.misc:checkbox("draw Lane pressure", g_config:add_bool(true, "LANE"))
   -- Draw
-  jmenu.checkboxDrawQ = sections.draw:checkbox("Draw alternate Q range",
-    g_config:add_bool(true, "Draw alternate Q range"))
+  jmenu.checkboxDrawQCurrent = sections.draw:checkbox("Draw Current Q range",g_config:add_bool(true, "Draw Current Q range"))
+
+  jmenu.checkboxDrawQAlt = sections.draw:checkbox("Draw alternate Q range",g_config:add_bool(true, "Draw alternate Q range"))
+    
   jmenu.checkboxDrawW = sections.draw:checkbox("Draw W off cooldown", g_config:add_bool(true, "Draw W off cooldown"))
 
   return jmenu
@@ -501,13 +503,28 @@ end
 
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
-  if jmenu.checkboxDrawQ:get_value() then
+  if jmenu.checkboxDrawQAlt then
     if Data['AA'].rocket_launcher then
       g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].short_range, 2, 50, 1)
     else
       g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].long_range, 2, 50, 1)
     end
   end
+  if jmenu.checkboxDrawQCurrent then
+    local fill =color:new(120, 120, 255, 20)
+    if not Data['AA'].rocket_launcher then
+      g_render:circle_3d(g_local.position, fill, Data['AA'].short_range, 1, 50, 2)
+      g_render:circle_3d(g_local.position, Colors.solid.white, Data['AA'].short_range, 2, 100, 2)
+
+    else
+      g_render:circle_3d(g_local.position, fill, Data['AA'].long_range, 1, 50, 1)
+      g_render:circle_3d(g_local.position, Colors.solid.white, Data['AA'].long_range, 2, 100, 1)
+
+    end
+  end
+
+
+
   if jmenu.checkboxDrawW:get_value() and core.objects:can_cast(e_spell_slot.w) then
     g_render:circle_3d(g_local.position, Colors.solid.blue, Data['W'].Range, 2, 50, 1)
   end
@@ -605,7 +622,7 @@ local function Draw()
     Prints("draw harass", 3)
     show_splash_harass()
   end
-  if jmenu.checkboxDrawQ:get_value() or jmenu.checkboxDrawW:get_value() then
+  if jmenu.checkboxDrawQCurrent:get_value() or jmenu.checkboxDrawQAlt or jmenu.checkboxDrawW:get_value()  then
     Prints("draw Q", 3)
     Visualize_spell_range()
   end
