@@ -50,6 +50,7 @@ Please note that this release may contain bugs. Your help in testing and reporti
 
 ### Damage Visualizer
 You can watch a video demonstration of the damage visualizer feature here: [Video Link](https://i.gyazo.com/2ad6840dbcdce81dffb02179eaac1448.mp4)
+![Damage Visualizer Screenshot](https://i.gyazo.com/6bc3943b850be7f750b30e96e89d1a74.png)
 - Shows R damage in R (if not on cooldown).
 - Shows Zap damage in blue (if not on cooldown).
 - Shows 3/4 auto attacks in purple (depending on attack speed).
