@@ -41,7 +41,7 @@ Please note that this release may contain bugs. Your help in testing and reporti
   - E Combo On target if slowed.
   - (Needs more logic)
 - R:
-  - R KS (a bit wonky, fix coming soon).
+  - R KS
   - R Semi-manual ulti, hold U (maybe I'll make it customizable, idk).
   - R option: don't use if enemy has a dash.
   - R MultiHit Combo for damage (if it will hit 3 <65% HP targets and allies can follow up).
