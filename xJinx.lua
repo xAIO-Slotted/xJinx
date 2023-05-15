@@ -987,9 +987,10 @@ end
 Recalling = {}
 local function ProcessRecall()
   for i, recall in ipairs(Recalling) do
-    local obj = features.entity_list:get_by_index(recall.champ)
-    if g_time > recall.end_time or (obj:is_visible() and not obj:is_recalling()) then
-      print("removing recall: " .. obj:get_object_name())
+    local target = features.entity_list:get_by_index(recall.champ)
+
+    if g_time > recall.end_time or (target:is_visible() and not target:is_recalling() or target:is_dead()) then
+      print("removing recall: " .. target:get_object_name())
       table.remove(Recalling, i)
     end
   end
@@ -1101,9 +1102,14 @@ local function baseult()
 end
 
 local function OnTick()
+
   if core.objects:can_cast(e_spell_slot.r) and jmenu.r_auto_base_ult_vision:get_value() then
     baseult() 
+  else if #Recalling > 0 then
+    Recalling = {}
   end
+    
+  end 
   
   if g_time - Last_cast_time <= 0.05 then return end
   if g_local:is_recalling() then return false end
