@@ -53,24 +53,4 @@ Shows 3/4 auto attacks in purple (depending on attack speed).
 Text guide on spell usage plus auto to kill (in picture).
 
 
-PermaShow
-PermaShow is a feature that provides real-time information and status display. It includes the following elements:
 
-Current Q AOE farm status and extend Harass toggle (A and I keys).
-Shows the active status of fast W mode and Semi-auto Ulti (when holding Control/U keys).
-PermaShow is movable and clickable.
-PermaShow Screenshot
-
-Debug Mode
-Debug mode is a helpful tool for understanding the script's behavior. It provides on-screen white text messages near the HUD, allowing you to track what the script is thinking. Debug mode has three levels, which can be set using a slider:
-
-Level 0 (Off): No debug messages displayed.
-Level 1 (Info): Displays some messages.
-Level 2 (Debug): Displays more messages.
-Level 3 (Trace): Displays all messages.
-xTargetSelector
-The xTargetSelector is a powerful feature that enhances the functionality of the script. It is considered the best TargetSelector and offers customizable weights. For a better understanding of its capabilities, @ampx could provide more detailed explanations.
-
-xTargetSelector Screenshot
-
-Please note that there may be plans to convert this script into jetAIO in the future, depending on available time and interest.
