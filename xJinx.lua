@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.1.9"
+local Jinx_VERSION = "1.2.0"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -18,6 +18,8 @@ local Harass_key = 4
 local Flee = 5
 local Recalling = 6
 local Freeze = 7
+
+LAST_AA_TARGET = nil
 
 
 Res = g_render:get_screensize()
@@ -1223,10 +1225,11 @@ local function combo_harass_q()
   end
 end
 local function fast_clear_aoe_Logic()
-  local jinx_aa_slots = {64,65,70,71}
+  local jinx_aa_slots = { 64, 65, 70, 71 }
   local target = core.objects:get_current_target_of_slot(jinx_aa_slots)
   if target then
-    Prints("q logic AOE and target came back: " .. tostring(target:get_object_name()), 3)
+    LAST_AA_TARGET = target
+    Prints("q logic AOE and target came back: " .. tostring(target:get_object_name()), 1)
     if target and core.helper:is_alive(target) then
       local nearby = core.objects:count_enemy_minions(250, target.position)
       Prints("count for aoe splash would be: " .. tostring(nearby), 3)
@@ -1237,12 +1240,37 @@ local function fast_clear_aoe_Logic()
           Last_Q_swap_time = g_time
           return true
         end
-      else if Data['AA'].rocket_launcher then
+      else
+        if Data['AA'].rocket_launcher then
           Prints("q AOE only hits " .. tostring(nearby) .. "minion[s]", 2)
           g_input:cast_spell(e_spell_slot.q)
           Last_Q_swap_time = g_time
           return true
         end
+      end
+    end
+  else -- no target thingy
+  end
+  
+
+  return false
+end
+local function fast_clear_w_Logic()
+  local target = LAST_AA_TARGET
+  if not target or not core.objects:is_alive(target) then LAST_AA_TARGET = nil return false end
+    
+  Prints("fast w logic and target came back: " .. tostring(target:get_object_name()), 3)
+
+  if target then
+    if target and core.helper:is_alive(target) then
+      if core.objects:is_big_jungle(target) and core.objects:is_ready(e_spell_slot.w) and features.orbwalker:should_reset_aa() then
+        local w_hit = features.prediction:predict(target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width,
+          Data['W'].castTime, g_local.position)
+          local minion_block = features.prediction:minion_in_line(g_local.position, w_hit.position, 120)
+          if w_hit.valid and not minion_block then 
+            g_input:cast_spell(e_spell_slot.w, w_hit.position)
+            return true
+          end
       end
     end
   end
@@ -1286,6 +1314,23 @@ local function get_w_hitchance_setting()
   return chance
 end
 
+local function w_jungle_clear_logic()
+  local target = Get_target()
+  if target == nil then return false end
+
+  local wHit = features.prediction:predict(target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width,
+    Data['W'].castTime, g_local.position)
+
+  local minion_block = features.prediction:minion_in_line(g_local.position, wHit.position, 120)
+
+  if wHit.valid and (wHit.hitchance >= get_w_hitchance_setting()) and not minion_block then
+    Prints("jungle clear: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
+    g_input:cast_spell(e_spell_slot.w, wHit.position)
+    return true
+  end
+end
+
+
 local function w_combo_harass_logic()
   local target = Get_target()
   if target == nil then return false end
@@ -1306,9 +1351,6 @@ local function w_combo_harass_logic()
 
   return false
 end
-
-
-
 
 
 local function get_semi_auto_r_target(sorted_targets)
@@ -1471,23 +1513,22 @@ cheat.register_module(
     spell_w = function(data)
       local target = Get_target()
       local mode = features.orbwalker:get_mode()
-      -- no w in evade or no target or out of range
-
-      if features.evade:is_active() or target == nil or g_local.position:dist_to(target.position) > Data['W'].Range then
-        return false
-      end
-
       local should_w_combo = (mode == Combo_key and jmenu.w_combo:get_value())
       local should_w_harass = (mode == Harass_key and jmenu.w_harass:get_value())
       local should_w_ks = (jmenu.w_KS:get_value())
+      local can_weave = features.orbwalker:should_reset_aa()
+      local should_w_Jungle_clear = (mode == Clear_key and jmenu.q_clear_aoe:get_value())
+      -- no w in evade or no target or out of range
 
-      -- w Combo / harss logic
-      if (should_w_combo or should_w_harass) and w_combo_harass_logic() then
-        return true
+      if not features.evade:is_active() and target and g_local.position:dist_to(target.position) <= Data['W'].Range then
+        -- w Combo / harss logic
+        if (should_w_combo or should_w_harass) and w_combo_harass_logic() then return true end
+        --W KS logic
+        if should_w_ks and w_ks_logic() then return true end
       end
-      --W KS logic
-      if should_w_ks and w_ks_logic() then return true end
+      -- Prints("should_w_Jungle_clear: " .. tostring(should_w_Jungle_clear) .. "can weave: " .. tostring(can_weave), 1)
 
+      if should_w_Jungle_clear and can_weave and fast_clear_w_Logic() then return true end
 
       return false
     end,
