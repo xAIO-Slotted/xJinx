@@ -1,6 +1,6 @@
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.2.0"
+local Jinx_VERSION = "1.3.0"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -505,14 +505,15 @@ end
 
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
-  if jmenu.checkboxDrawQAlt then
+  if jmenu.checkboxDrawQAlt:get_value() then
     if Data['AA'].rocket_launcher then
       g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].short_range, 2, 50, 1)
     else
       g_render:circle_3d(g_local.position, Colors.solid.blue, Data['AA'].long_range, 2, 50, 1)
     end
   end
-  if jmenu.checkboxDrawQCurrent then
+  
+  if jmenu.checkboxDrawQCurrent:get_value() then
     local fill =color:new(120, 120, 255, 20)
     if not Data['AA'].rocket_launcher then
       g_render:circle_3d(g_local.position, fill, Data['AA'].short_range, 1, 50, 2)
@@ -1199,6 +1200,7 @@ local function save_minion_with_q()
     end
   end
 end
+
 local function combo_harass_q()
   local target = Get_target()
  
@@ -1257,7 +1259,7 @@ local function fast_clear_aoe_Logic()
 end
 local function fast_clear_w_Logic()
   local target = LAST_AA_TARGET
-  if not target or not core.objects:is_alive(target) then LAST_AA_TARGET = nil return false end
+  if not target or not core.helper:is_alive(target) then LAST_AA_TARGET = nil return false end
     
   Prints("fast w logic and target came back: " .. tostring(target:get_object_name()), 3)
 
@@ -1347,7 +1349,6 @@ local function w_combo_harass_logic()
     g_input:cast_spell(e_spell_slot.w, wHit.position)
     return true
   end
-
 
   return false
 end
