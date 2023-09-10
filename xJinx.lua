@@ -1,7 +1,9 @@
+core = require("xCore")
+core:init()
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.3.0"
-local Jinx_LUA_NAME = "xJinx.lua"
+local Jinx_VERSION = "1.4.0"
+local Jinx_LaUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
 REQUIRE_SLOTTED_RESTART = false
@@ -41,6 +43,9 @@ local chanceStrings = {
   [3] = "very_high",
   [4] = "immobile"
 }
+local function get_menu_val(cfg)
+  return core.helper:get_menu_val(cfg)
+end
 
 local function add_jmenus()
   local jmenu = {}
@@ -435,9 +440,9 @@ local function Get_target()
     -- try even harder to find a target
     if target == nil or (target and g_local.position:dist_to(target.position) > 2000) then
       if core.objects:count_enemy_champs(2000) > 0 then
-        print("get second try")
+        print("get second try", 4)
         target = core.target_selector:get_second_target(2000)
-        print("get thirds try")
+        print("get thirds try", 4)
         
         if target == nil or (target and g_local.position:dist_to(target.position) > 2000) then
           local enemies = core.objects:get_enemy_champs(2000)
@@ -462,7 +467,7 @@ end
 
 
 -- <3 nenny
-function Vec3_Rotate(c, p, angle)  -- Center, Point, Angle
+local function Vec3_Rotate(c, p, angle)  -- Center, Point, Angle
   angle = angle * (math.pi / 180)
   local rotatedX = math.cos(angle) * (p.x - c.x) - math.sin(angle) * (p.z - c.z) + c.x
   local rotatedZ = math.sin(angle) * (p.x - c.x) + math.cos(angle) * (p.z - c.z) + c.z
@@ -501,7 +506,6 @@ local function count_hit_by_traps(center, enemies)
 
   return hit_count
 end
-
 
 local function Visualize_spell_range()
   Prints("draw ranges", 3)
@@ -958,6 +962,8 @@ local function On_cc_special_channel(index)
       if features.buff_cache:is_immobile(enemy.index) then is_ccd = true end
       if features.buff_cache:has_hard_cc(enemy.index) then is_immobile = true end
       if Has_stasis(enemy) then return On_stasis_special_channel(index) end
+      local cai = enemy:get_ai_manager()
+      if cai.is_dashing then return OnDash(index) end
 
       if is_immobile or is_ccd then
         Prints("is ccd or immobile looking to cast", 2)
@@ -1154,10 +1160,6 @@ end
 
 local function fakeorbwalk()
 -- if mode clear and orbwalker 
-
-
-
-
 end
 
 
@@ -1231,7 +1233,7 @@ local function fast_clear_aoe_Logic()
   local target = core.objects:get_current_target_of_slot(jinx_aa_slots)
   if target then
     LAST_AA_TARGET = target
-    Prints("q logic AOE and target came back: " .. tostring(target:get_object_name()), 1)
+    Prints("q logic AOE and target came back: " .. tostring(target:get_object_name()), 4)
     if target and core.helper:is_alive(target) then
       local nearby = core.objects:count_enemy_minions(250, target.position)
       Prints("count for aoe splash would be: " .. tostring(nearby), 3)
@@ -1351,6 +1353,33 @@ local function w_combo_harass_logic()
   end
 
   return false
+end
+
+local function weave_auto_w(e)
+  -- this is pre attack :(
+  -- if not core.objects:can_cast(e_spell_slot.w) then return false end
+  -- Prints("weave auto w", 1)
+  -- if not features.orbwalker:should_reset_aa() then return false end
+
+  -- --if ready w
+  -- local target = Get_target()
+  -- if target == nil then return false end
+
+  -- -- if should_skip_w_cast() then return false end
+  -- Prints("waw pred")
+  -- local wHit = features.prediction:predict(target.index, Data['W'].Range, Data['W'].Speed, Data['W'].Width,
+  --   Data['W'].castTime, g_local.position)
+
+  -- local minion_block = features.prediction:minion_in_line(g_local.position, wHit.position, 120)
+
+  -- local chance_req = get_w_hitchance_setting()
+  -- Prints(' waw w hitchance is ' .. chanceStrings[wHit.hitchance] .. " and chance req is " .. chanceStrings[chance_req], 1)
+  -- if wHit.valid and (wHit.hitchance >= chance_req) and not minion_block then
+  --   Prints("combo: casting w hitchance is " .. chanceStrings[wHit.hitchance], 2)
+  --   g_input:cast_spell(e_spell_slot.w, wHit.position)
+  --   return true
+  -- end
+
 end
 
 
@@ -1492,7 +1521,7 @@ cheat.register_module(
     champion_name = "Jinx",
     spell_q = function(data)
       Prints("q spell in", 3)
-      local mode = features.orbwalker:get_mode()
+      local mode = core.helper:get_mode()
 
       -- Combo logic
       if mode == Combo_key and jmenu.q_combo:get_value() and combo_harass_q() then return true end
@@ -1514,12 +1543,12 @@ cheat.register_module(
     spell_w = function(data)
       local target = Get_target()
       local mode = features.orbwalker:get_mode()
-      local should_w_combo = (mode == Combo_key and jmenu.w_combo:get_value())
+      local should_w_combo = (mode == Combo_key and get_menu_val(jmenu.w_combo))
       local should_w_harass = (mode == Harass_key and jmenu.w_harass:get_value())
       local should_w_ks = (jmenu.w_KS:get_value())
       local can_weave = features.orbwalker:should_reset_aa()
       local should_w_Jungle_clear = (mode == Clear_key and jmenu.q_clear_aoe:get_value())
-      -- no w in evade or no target or out of range
+--      no w in evade or no target or out of range
 
       if not features.evade:is_active() and target and g_local.position:dist_to(target.position) <= Data['W'].Range then
         -- w Combo / harss logic
@@ -1530,7 +1559,7 @@ cheat.register_module(
       -- Prints("should_w_Jungle_clear: " .. tostring(should_w_Jungle_clear) .. "can weave: " .. tostring(can_weave), 1)
 
       if should_w_Jungle_clear and can_weave and fast_clear_w_Logic() then return true end
-
+             
       return false
     end,
     spell_e = function(data)
@@ -1578,8 +1607,7 @@ cheat.register_module(
 
 check_for_prereqs()
 if REQUIRE_SLOTTED_RESTART then return end
-core = require("xCore")
-core:init()
+
 Colors = core.debug.Colors
 
 check_for_update()
@@ -1596,3 +1624,8 @@ cheat.register_callback("render", Draw)
 cheat.register_callback("feature", Refresh)
 cheat.register_callback("feature", Splash_harass)
 cheat.register_callback("feature", OnTick)
+-- cheat.register_callback("local.issue_order_attack", weave_auto_w)
+-- cheat.on("local.issue_order_attack", function(e) Prints("ATK") end)
+
+-- cheat.on("local.issue_order_attack", function(e) weave_auto_w(e) end)
+
