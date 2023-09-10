@@ -3,7 +3,7 @@ core:init()
 -- xJinx by Jay and a bit of ampx.
 
 local Jinx_VERSION = "1.4.0"
-local Jinx_LaUA_NAME = "xJinx.lua"
+local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
 REQUIRE_SLOTTED_RESTART = false
