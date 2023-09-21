@@ -1,8 +1,8 @@
-core = require("xCore")
-core:init()
+
+
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.4.0"
+local Jinx_VERSION = "1.4.1"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
@@ -21,20 +21,20 @@ local Flee = 5
 local Recalling = 6
 local Freeze = 7
 
-LAST_AA_TARGET = nil
+local LAST_AA_TARGET = nil
 
 
-Res = g_render:get_screensize()
-Font = 'roboto-regular'
+local Res = g_render:get_screensize()
+local Font = 'roboto-regular'
 
-MinionInRange = {}
-MinionToHarass = {}
-SplashableTargetIndex = nil
-SplashableMinionIndex = nil
-MinionTable = {}
-Last_Q_swap_time = g_time
-Last_cast_time = g_time
-Last_dbg_msg_time = g_time
+local MinionInRange = {}
+local MinionToHarass = {}
+local SplashableTargetIndex = nil
+local SplashableMinionIndex = nil
+local MinionTable = {}
+local Last_Q_swap_time = g_time
+local Last_cast_time = g_time
+local Last_dbg_msg_time = g_time
 
 local chanceStrings = {
   [0] = "low",
@@ -138,7 +138,7 @@ end
 local jmenu = add_jmenus()
 
 
-function Prints(str, level)
+local function Prints(str, level)
   core.debug:Print(str, level)
 end
 
@@ -239,6 +239,7 @@ local function check_for_prereqs()
     print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
     print("You did not have the fonts you will have to restart slotted, it will work next time though :D")
   end
+  if REQUIRE_SLOTTED_RESTART then return false else return true end
 end
 local function check_for_update()
   local remote_version = fetch_remote_version_number()
@@ -792,7 +793,6 @@ local function Time_remaining_for_dash(cai)
   return time_remaining
 end
 
-
 local function OnDash(index)
   local tgt = features.entity_list:get_by_index(index)
   local champion_name = string.lower(tgt.champion_name.text)
@@ -881,7 +881,6 @@ local function Has_stasis(enemy)
 
   return has_stasis, stasis_end_time
 end
-
 local function On_stasis_special_channel(index)
   local enemy = features.entity_list:get_by_index(index)
   if enemy then
@@ -1051,7 +1050,6 @@ local function ProcessRecall()
   end
 end
 
-
 local function Refresh() Data:refresh_data() end
 
 local function calculate_projectile_travel_time(distance)
@@ -1161,7 +1159,6 @@ end
 local function fakeorbwalk()
 -- if mode clear and orbwalker 
 end
-
 
 local function exit_rocket_logic()
   local mode = features.orbwalker:get_mode()
@@ -1333,8 +1330,6 @@ local function w_jungle_clear_logic()
     return true
   end
 end
-
-
 local function w_combo_harass_logic()
   local target = Get_target()
   if target == nil then return false end
@@ -1381,7 +1376,6 @@ local function weave_auto_w(e)
   -- end
 
 end
-
 
 local function get_semi_auto_r_target(sorted_targets)
   if #sorted_targets > 0 then
@@ -1466,7 +1460,6 @@ local function should_e_multihit()
   return false
 end
 
-
 local function should_e_slowed()
   local target = Get_target()
   if target and core.helper:is_alive(target) then
@@ -1514,6 +1507,20 @@ local function try_r_multihit(sorted_targets)
 
   return false
 end
+
+
+
+print("-==--=-=-=-==- xJinx Loading... -==--=-=-=-==-")
+print("checking for reqs")
+if not check_for_prereqs() then return end
+print("checking for update")
+if REQUIRE_SLOTTED_RESTART then return end
+
+
+if not core then core = require("xCore") core:init() end
+local Colors = core.debug.Colors
+check_for_update()
+
 
 ---@diagnostic disable-next-line: missing-parameter
 cheat.register_module(
@@ -1605,12 +1612,6 @@ cheat.register_module(
   })
 
 
-check_for_prereqs()
-if REQUIRE_SLOTTED_RESTART then return end
-
-Colors = core.debug.Colors
-
-check_for_update()
 
 core.permashow:set_title(name)
 -- Clear
@@ -1628,4 +1629,3 @@ cheat.register_callback("feature", OnTick)
 -- cheat.on("local.issue_order_attack", function(e) Prints("ATK") end)
 
 -- cheat.on("local.issue_order_attack", function(e) weave_auto_w(e) end)
-
