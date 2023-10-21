@@ -2,7 +2,7 @@
 
 -- xJinx by Jay and a bit of ampx.
 
-local Jinx_VERSION = "1.4.1"
+local Jinx_VERSION = "1.4.2"
 local Jinx_LUA_NAME = "xJinx.lua"
 local Jinx_REPO_BASE_URL = "https://raw.githubusercontent.com/xAIO-Slotted/xJinx/main/"
 local Jinx_REPO_SCRIPT_PATH = Jinx_REPO_BASE_URL .. Jinx_LUA_NAME
